@@ -59,6 +59,11 @@ class Solver {
   shared_ptr<Net<Dtype> > net_;
   vector<shared_ptr<Net<Dtype> > > test_nets_;
 
+#ifdef USE_MPI
+  int myrank_;
+  int all_proc_;
+#endif
+
   DISABLE_COPY_AND_ASSIGN(Solver);
 };
 
@@ -88,6 +93,10 @@ class SGDSolver : public Solver<Dtype> {
   // temp maintains other information that might be needed in computation
   //   of gradients/updates and is not needed in snapshots
   vector<shared_ptr<Blob<Dtype> > > history_, update_, temp_;
+
+#ifdef USE_MPI
+  Blob<Dtype>  reducer_;
+#endif
 
   DISABLE_COPY_AND_ASSIGN(SGDSolver);
 };
