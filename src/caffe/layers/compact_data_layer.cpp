@@ -5,10 +5,7 @@
 #include <vector>
 
 #include <opencv2/core/core_c.h>
-#include <opencv2/core/core.hpp>
-#include <opencv2/highgui/highgui.hpp>
 #include <opencv2/highgui/highgui_c.h>
-#include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/imgproc/imgproc_c.h>
 
 #include "caffe/common.hpp"
@@ -18,8 +15,6 @@
 #include "caffe/util/io.hpp"
 #include "caffe/util/math_functions.hpp"
 #include "caffe/util/rng.hpp"
-
-using namespace cv;
 
 namespace caffe {
 
