@@ -98,9 +98,102 @@ static mxArray* do_forward(const mxArray* const bottom) {
   return mx_out;
 }
 
+static mxArray* get_blob_data(const mxArray* const b_name) {
+  if(!mxIsChar(b_name)) {
+      mexErrMsgTxt("get_data require a string (blob name) as input");
+  }
+          // << " ";
+  char* blob_name = mxArrayToString(b_name);
+  if (!net_->has_blob(blob_name)) {
+      mexErrMsgTxt("Cannot find layer");
+      return NULL;
+  }
+  const shared_ptr<Blob<float> > data_blob
+        = net_->blob_by_name(blob_name);
+  mwSize dims[4] = {data_blob->width(), data_blob->height(),
+                    data_blob->channels(), data_blob->num()};
+  mxArray* mx_data =
+    mxCreateNumericArray(4, dims, mxSINGLE_CLASS, mxREAL);
+  float* data_ptr = reinterpret_cast<float*>(mxGetPr(mx_data));
+  switch (Caffe::mode()) {
+    case Caffe::CPU:
+      caffe_copy(data_blob->count(), data_blob->cpu_data(), data_ptr);
+      break;
+    case Caffe::GPU:
+      caffe_copy(data_blob->count(), data_blob->gpu_data(), data_ptr);
+      break;
+    default:
+      LOG(FATAL) << "Unknown caffe mode: " << Caffe::mode();
+  }
+  return mx_data;
+}
+
+static mxArray* get_input_diff() {
+  vector<Blob<float>*>& input_blobs = net_->input_blobs();
+  mxArray* mx_out = mxCreateCellMatrix(input_blobs.size(), 1);
+  for (unsigned int i = 0; i < input_blobs.size(); ++i) {
+    // internally data is stored as (width, height, channels, num)
+    // where width is the fastest dimension
+    mwSize dims[4] = {input_blobs[i]->width(), input_blobs[i]->height(),
+      input_blobs[i]->channels(), input_blobs[i]->num()};
+    mxArray* mx_blob =  mxCreateNumericArray(4, dims, mxSINGLE_CLASS, mxREAL);
+    mxSetCell(mx_out, i, mx_blob);
+    float* data_ptr = reinterpret_cast<float*>(mxGetPr(mx_blob));
+    switch (Caffe::mode()) {
+    case Caffe::CPU:
+      caffe_copy(input_blobs[i]->count(), input_blobs[i]->cpu_diff(), data_ptr);
+      break;
+    case Caffe::GPU:
+      caffe_copy(input_blobs[i]->count(), input_blobs[i]->gpu_diff(), data_ptr);
+      break;
+    default:
+      LOG(FATAL) << "Unknown Caffe mode.";
+    }  // switch (Caffe::mode())
+  }
+  return mx_out;
+}
+
+static mxArray* do_backward_from(const mxArray* const l_name, const mxArray* const b_name, const mxArray* const diff) {
+  if(!mxIsChar(b_name) || !mxIsChar(l_name)) {
+      mexErrMsgTxt("get_data require a string (blob name|layer name) as input");
+  }
+  char *layer_name = mxArrayToString(l_name);
+  if (!net_->has_layer(layer_name)) {
+      mexErrMsgTxt("Cannot find layer");
+      return NULL;
+  }
+  char *blob_name = mxArrayToString(b_name);
+  if (!net_->has_blob(blob_name)) {
+      mexErrMsgTxt("Cannot find blob");
+      return NULL;
+  }
+
+  // Step 1. set the blob diff
+  const shared_ptr<Blob<float> > diff_blob
+        = net_->blob_by_name(blob_name);
+  if (mxGetNumberOfElements(diff) != diff_blob->count()) {
+    mexErrMsgTxt("input number of elements doesn't match");
+    return NULL;
+  }
+  float* diff_ptr = reinterpret_cast<float*>(mxGetPr(diff));
+  switch (Caffe::mode()) {
+    case Caffe::CPU:
+      caffe_copy(diff_blob->count(), diff_ptr, diff_blob->mutable_cpu_diff());
+      break;
+    case Caffe::GPU:
+      caffe_copy(diff_blob->count(), diff_ptr, diff_blob->mutable_gpu_diff());
+  }
+
+  // Step 2. do bp from the specified layer
+  net_->BackwardBypassNorm(layer_name);
+
+  // Step 3. get the input diff
+  return get_input_diff();
+}
+
+
 static mxArray* do_backward(const mxArray* const top_diff, const int bp_type) {
   vector<Blob<float>*>& output_blobs = net_->output_blobs();
-  vector<Blob<float>*>& input_blobs = net_->input_blobs();
   CHECK_EQ(static_cast<unsigned int>(mxGetDimensions(top_diff)[0]),
       output_blobs.size());
   // First, copy the output diff
@@ -139,28 +232,7 @@ static mxArray* do_backward(const mxArray* const top_diff, const int bp_type) {
       LOG(FATAL) << "Unknown bp type.";
   }
   // LOG(INFO) << "End";
-  mxArray* mx_out = mxCreateCellMatrix(input_blobs.size(), 1);
-  for (unsigned int i = 0; i < input_blobs.size(); ++i) {
-    // internally data is stored as (width, height, channels, num)
-    // where width is the fastest dimension
-    mwSize dims[4] = {input_blobs[i]->width(), input_blobs[i]->height(),
-      input_blobs[i]->channels(), input_blobs[i]->num()};
-    mxArray* mx_blob =  mxCreateNumericArray(4, dims, mxSINGLE_CLASS, mxREAL);
-    mxSetCell(mx_out, i, mx_blob);
-    float* data_ptr = reinterpret_cast<float*>(mxGetPr(mx_blob));
-    switch (Caffe::mode()) {
-    case Caffe::CPU:
-      caffe_copy(input_blobs[i]->count(), input_blobs[i]->cpu_diff(), data_ptr);
-      break;
-    case Caffe::GPU:
-      caffe_copy(input_blobs[i]->count(), input_blobs[i]->gpu_diff(), data_ptr);
-      break;
-    default:
-      LOG(FATAL) << "Unknown Caffe mode.";
-    }  // switch (Caffe::mode())
-  }
-
-  return mx_out;
+  return get_input_diff();
 }
 
 static mxArray* do_backward(const mxArray* const top_diff) {
@@ -315,7 +387,6 @@ static void forward(MEX_ARGS) {
     LOG(ERROR) << "Only given " << nrhs << " arguments";
     mexErrMsgTxt("Wrong number of arguments");
   }
-
   plhs[0] = do_forward(prhs[0]);
 }
 
@@ -326,10 +397,21 @@ static void backward(MEX_ARGS) {
   else if (nrhs == 2) {
     plhs[0] = do_backward(prhs[0], static_cast<int>(mxGetScalar(prhs[1])));
   }
+  else if (nrhs == 3) {
+    plhs[0] = do_backward_from(prhs[0], prhs[1], prhs[2]);
+  }
   else {
     LOG(ERROR) << "Only given " << nrhs << " arguments";
     mexErrMsgTxt("Wrong number of arguments");
   }
+}
+
+static void get_data(MEX_ARGS) {
+  if (nrhs != 1) {
+    LOG(ERROR) << "Only given " << nrhs << " arguments";
+    mexErrMsgTxt("Wrong number of arguments");
+  }
+  plhs[0] = get_blob_data(prhs[0]);
 }
 
 static void is_initialized(MEX_ARGS) {
@@ -388,6 +470,7 @@ static handler_registry handlers[] = {
   { "get_init_key",       get_init_key    },
   { "reset",              reset           },
   { "read_mean",          read_mean       },
+  { "get_data",           get_data        },
   // The end.
   { "END",                NULL            },
 };

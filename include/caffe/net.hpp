@@ -64,6 +64,7 @@ class Net {
    */
   void Backward();
   void BackwardBypassNorm();
+  void BackwardBypassNorm(const string &layer_name);
   void DummyBackward();
   void BackwardFromTo(int start, int end);
   void BackwardFrom(int start);

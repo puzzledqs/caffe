@@ -735,14 +735,12 @@ void Net<Dtype>::DummyBackward() {
 }
 
 template <typename Dtype>
-void Net<Dtype>::BackwardBypassNorm() {
-  // stuff the diff() of last layer with its forward responses...
-
-  Dtype* cpu_diff = top_vecs_[top_vecs_.size()-1][0]->mutable_cpu_diff();
+void Net<Dtype>::BackwardBypassNorm(const string& layer_name) {
+  int layer_index = layer_names_index_[layer_name];
+  Dtype* cpu_diff = top_vecs_[layer_index][0]->mutable_cpu_diff();
   CUDA_CHECK(cudaDeviceSynchronize());
-  //BackwardFromTo(layers_.size() - 1, 0);
-  // std::cout << "layer Num: " << layers_.size() << std::endl;
-  for (int i = layers_.size() - 1; i >= 0; i--) {
+
+  for (int i = layer_index; i >= 0; i--) {
     if (layer_need_backward_[i]) {
       // std::cout << layer_names_[i] << std::endl;
       // bypass local contrast normalization layers as it will cause NaN issues.
@@ -761,6 +759,34 @@ void Net<Dtype>::BackwardBypassNorm() {
       }
     }
   }
+}
+
+template <typename Dtype>
+void Net<Dtype>::BackwardBypassNorm() {
+  BackwardBypassNorm(layer_names()[layers_.size() - 1]);
+  // Dtype* cpu_diff = top_vecs_[top_vecs_.size()-1][0]->mutable_cpu_diff();
+  // CUDA_CHECK(cudaDeviceSynchronize());
+  // //BackwardFromTo(layers_.size() - 1, 0);
+  // // std::cout << "layer Num: " << layers_.size() << std::endl;
+  // for (int i = layers_.size() - 1; i >= 0; i--) {
+  //   if (layer_need_backward_[i]) {
+  //     // std::cout << layer_names_[i] << std::endl;
+  //     // bypass local contrast normalization layers as it will cause NaN issues.
+  //     if (layer_names_[i].substr(0, 4) == string("norm")) {
+  //       CUDA_CHECK(cudaMemcpy(top_vecs_[i-1][0]->mutable_gpu_diff(),
+  //                             top_vecs_[i][0]->gpu_diff(),
+  //                             top_vecs_[i][0]->count()*sizeof(Dtype),
+  //                             cudaMemcpyDeviceToDevice));
+  //     }
+  //     else {
+  //       for (int bottom_id = 0; bottom_id < bottom_need_backward_[i].size(); bottom_id++) {
+  //         bottom_need_backward_[i][bottom_id] = true;
+  //         blob_need_backward_[bottom_id_vecs_[i][bottom_id]] = true;
+  //       }
+  //       layers_[i]->Backward(top_vecs_[i], bottom_need_backward_[i], &bottom_vecs_[i]);
+  //     }
+  //   }
+  // }
 }
 
 template <typename Dtype>
