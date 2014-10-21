@@ -1,10 +1,10 @@
-function  matcaffe_init(use_gpu, model_def_file, model_file)
+function  matcaffe_init(use_gpu, model_def_file, model_file, device_id)
 % matcaffe_init(model_def_file, model_file, use_gpu)
 % Initilize matcaffe wrapper
 
 if nargin < 1
-  % By default use CPU
-  use_gpu = 0;
+  % By default use GPU
+  use_gpu = 1;
 end
 if nargin < 2 || isempty(model_def_file)
   % By default use imagenet_deploy
@@ -13,6 +13,10 @@ end
 if nargin < 3 || isempty(model_file)
   % By default use caffe reference model
   model_file = '../../models/bvlc_reference_caffenet/bvlc_reference_caffenet.caffemodel';
+end
+
+if nargin < 4
+    device_id = 0;
 end
 
 
@@ -33,11 +37,13 @@ fprintf('Done with init\n');
 if use_gpu
   fprintf('Using GPU Mode\n');
   caffe('set_mode_gpu');
+  caffe('set_device', device_id);
 else
   fprintf('Using CPU Mode\n');
   caffe('set_mode_cpu');
 end
 fprintf('Done with set_mode\n');
+
 
 % put into test mode
 caffe('set_phase_test');

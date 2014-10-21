@@ -5,6 +5,7 @@
 
 #include <string>
 #include <vector>
+#include <iostream>
 
 #include "mex.h"
 
@@ -78,6 +79,7 @@ static mxArray* do_forward(const mxArray* const bottom) {
       output_blobs[i]->channels(), output_blobs[i]->num()};
     mxArray* mx_blob =  mxCreateNumericArray(4, dims, mxSINGLE_CLASS, mxREAL);
     mxSetCell(mx_out, i, mx_blob);
+
     float* data_ptr = reinterpret_cast<float*>(mxGetPr(mx_blob));
     switch (Caffe::mode()) {
     case Caffe::CPU:
@@ -96,7 +98,7 @@ static mxArray* do_forward(const mxArray* const bottom) {
   return mx_out;
 }
 
-static mxArray* do_backward(const mxArray* const top_diff) {
+static mxArray* do_backward(const mxArray* const top_diff, const int bp_type) {
   vector<Blob<float>*>& output_blobs = net_->output_blobs();
   vector<Blob<float>*>& input_blobs = net_->input_blobs();
   CHECK_EQ(static_cast<unsigned int>(mxGetDimensions(top_diff)[0]),
@@ -119,8 +121,23 @@ static mxArray* do_backward(const mxArray* const top_diff) {
       LOG(FATAL) << "Unknown Caffe mode.";
     }  // switch (Caffe::mode())
   }
+  // const float* p = output_blobs[0]->cpu_diff();
+  // for (int i = 0; i < 10; i++)
+  //   std::cout << *p++ << " ";
+  // std::cout << std::endl;
   // LOG(INFO) << "Start";
-  net_->Backward();
+  switch (bp_type) {
+    case 0:
+      net_->BackwardBypassNorm();
+      // net_->Backward();
+      break;
+    case 1:
+      std::cout << "use dummy backward" << std::endl;
+      net_->DummyBackward();
+      break;
+    default:
+      LOG(FATAL) << "Unknown bp type.";
+  }
   // LOG(INFO) << "End";
   mxArray* mx_out = mxCreateCellMatrix(input_blobs.size(), 1);
   for (unsigned int i = 0; i < input_blobs.size(); ++i) {
@@ -144,6 +161,10 @@ static mxArray* do_backward(const mxArray* const top_diff) {
   }
 
   return mx_out;
+}
+
+static mxArray* do_backward(const mxArray* const top_diff) {
+  return do_backward(top_diff, 0);
 }
 
 static mxArray* do_get_weights() {
@@ -299,12 +320,16 @@ static void forward(MEX_ARGS) {
 }
 
 static void backward(MEX_ARGS) {
-  if (nrhs != 1) {
+  if (nrhs == 1) {
+    plhs[0] = do_backward(prhs[0]);
+  }
+  else if (nrhs == 2) {
+    plhs[0] = do_backward(prhs[0], static_cast<int>(mxGetScalar(prhs[1])));
+  }
+  else {
     LOG(ERROR) << "Only given " << nrhs << " arguments";
     mexErrMsgTxt("Wrong number of arguments");
   }
-
-  plhs[0] = do_backward(prhs[0]);
 }
 
 static void is_initialized(MEX_ARGS) {

@@ -4,6 +4,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <iostream>
 
 #include "caffe/common.hpp"
 #include "caffe/layer.hpp"
@@ -580,6 +581,7 @@ void Net<Dtype>::BackwardFromTo(int start, int end) {
   CHECK_GE(end, 0);
   CHECK_LT(start, layers_.size());
   for (int i = start; i >= end; --i) {
+    // std::cout << layer_names_[i] << ": " << layer_need_backward_[i] << std::endl;
     if (layer_need_backward_[i]) {
       layers_[i]->Backward(
           top_vecs_[i], bottom_need_backward_[i], &bottom_vecs_[i]);
@@ -698,6 +700,67 @@ void Net<Dtype>::BackwardTo(int end) {
 template <typename Dtype>
 void Net<Dtype>::Backward() {
   BackwardFromTo(layers_.size() - 1, 0);
+}
+
+template <typename Dtype>
+void Net<Dtype>::DummyBackward() {
+  // std::cout << "hello" << std::endl;
+  // stuff the diff() of last layer with its forward responses...
+  CUDA_CHECK(cudaMemcpy(top_vecs_[top_vecs_.size()-1][0]->mutable_gpu_diff(),
+                        top_vecs_[top_vecs_.size()-1][0]->gpu_data(),
+                        top_vecs_[top_vecs_.size()-1][0]->count()*sizeof(Dtype),
+                        cudaMemcpyDeviceToDevice));
+  Dtype* cpu_diff = top_vecs_[top_vecs_.size()-1][0]->mutable_cpu_diff();
+  CUDA_CHECK(cudaDeviceSynchronize());
+  //BackwardFromTo(layers_.size() - 1, 0);
+  // std::cout << "layer Num: " << layers_.size() << std::endl;
+  for (int i = layers_.size() - 1; i >= 0; i--) {
+    if (layer_need_backward_[i]) {
+      // std::cout << layer_names_[i] << std::endl;
+      if (layer_names_[i].substr(0, 4) == string("norm")) {
+        CUDA_CHECK(cudaMemcpy(top_vecs_[i-1][0]->mutable_gpu_diff(),
+                              top_vecs_[i][0]->gpu_diff(),
+                              top_vecs_[i][0]->count()*sizeof(Dtype),
+                              cudaMemcpyDeviceToDevice));
+      }
+      else {
+        for (int bottom_id = 0; bottom_id < bottom_need_backward_[i].size(); bottom_id++) {
+          bottom_need_backward_[i][bottom_id] = true;
+          blob_need_backward_[bottom_id_vecs_[i][bottom_id]] = true;
+        }
+        layers_[i]->Backward(top_vecs_[i], bottom_need_backward_[i], &bottom_vecs_[i]);
+      }
+    }
+  }
+}
+
+template <typename Dtype>
+void Net<Dtype>::BackwardBypassNorm() {
+  // stuff the diff() of last layer with its forward responses...
+
+  Dtype* cpu_diff = top_vecs_[top_vecs_.size()-1][0]->mutable_cpu_diff();
+  CUDA_CHECK(cudaDeviceSynchronize());
+  //BackwardFromTo(layers_.size() - 1, 0);
+  // std::cout << "layer Num: " << layers_.size() << std::endl;
+  for (int i = layers_.size() - 1; i >= 0; i--) {
+    if (layer_need_backward_[i]) {
+      // std::cout << layer_names_[i] << std::endl;
+      // bypass local contrast normalization layers as it will cause NaN issues.
+      if (layer_names_[i].substr(0, 4) == string("norm")) {
+        CUDA_CHECK(cudaMemcpy(top_vecs_[i-1][0]->mutable_gpu_diff(),
+                              top_vecs_[i][0]->gpu_diff(),
+                              top_vecs_[i][0]->count()*sizeof(Dtype),
+                              cudaMemcpyDeviceToDevice));
+      }
+      else {
+        for (int bottom_id = 0; bottom_id < bottom_need_backward_[i].size(); bottom_id++) {
+          bottom_need_backward_[i][bottom_id] = true;
+          blob_need_backward_[bottom_id_vecs_[i][bottom_id]] = true;
+        }
+        layers_[i]->Backward(top_vecs_[i], bottom_need_backward_[i], &bottom_vecs_[i]);
+      }
+    }
+  }
 }
 
 template <typename Dtype>

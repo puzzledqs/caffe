@@ -63,6 +63,8 @@ class Net {
    * provided during the forward pass.
    */
   void Backward();
+  void BackwardBypassNorm();
+  void DummyBackward();
   void BackwardFromTo(int start, int end);
   void BackwardFrom(int start);
   void BackwardTo(int end);
