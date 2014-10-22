@@ -100,7 +100,7 @@ static mxArray* do_forward(const mxArray* const bottom) {
 
 static mxArray* get_blob_data(const mxArray* const b_name) {
   if(!mxIsChar(b_name)) {
-      mexErrMsgTxt("get_data require a string (blob name) as input");
+      mexErrMsgTxt("get_blob require a string (blob name) as input");
   }
           // << " ";
   char* blob_name = mxArrayToString(b_name);
@@ -154,8 +154,8 @@ static mxArray* get_input_diff() {
 }
 
 static mxArray* do_backward_from(const mxArray* const l_name, const mxArray* const b_name, const mxArray* const diff) {
-  if(!mxIsChar(b_name) || !mxIsChar(l_name)) {
-      mexErrMsgTxt("get_data require a string (blob name|layer name) as input");
+  if(!mxIsChar(b_name) || !mxIsChar(l_name) || !mxIsSingle(diff)) {
+      mexErrMsgTxt("require a string (blob name|layer name) as input");
   }
   char *layer_name = mxArrayToString(l_name);
   if (!net_->has_layer(layer_name)) {
@@ -172,7 +172,7 @@ static mxArray* do_backward_from(const mxArray* const l_name, const mxArray* con
   const shared_ptr<Blob<float> > diff_blob
         = net_->blob_by_name(blob_name);
   if (mxGetNumberOfElements(diff) != diff_blob->count()) {
-    mexErrMsgTxt("input number of elements doesn't match");
+    mexErrMsgTxt("input number of elements doesn't match the size of the network");
     return NULL;
   }
   float* diff_ptr = reinterpret_cast<float*>(mxGetPr(diff));
@@ -199,6 +199,11 @@ static mxArray* do_backward(const mxArray* const top_diff, const int bp_type) {
   // First, copy the output diff
   for (unsigned int i = 0; i < output_blobs.size(); ++i) {
     const mxArray* const elem = mxGetCell(top_diff, i);
+    if (!mxIsSingle(elem))
+        mexErrMsgTxt("MatCaffe require single-precision float point data");
+    if (mxGetNumberOfElements(elem) != output_blobs[i]->count())
+        mexErrMsgTxt("input number of elements doesn't match the size of the network");
+
     const float* const data_ptr =
         reinterpret_cast<const float* const>(mxGetPr(elem));
     switch (Caffe::mode()) {
@@ -406,7 +411,7 @@ static void backward(MEX_ARGS) {
   }
 }
 
-static void get_data(MEX_ARGS) {
+static void get_blob(MEX_ARGS) {
   if (nrhs != 1) {
     LOG(ERROR) << "Only given " << nrhs << " arguments";
     mexErrMsgTxt("Wrong number of arguments");
@@ -470,7 +475,7 @@ static handler_registry handlers[] = {
   { "get_init_key",       get_init_key    },
   { "reset",              reset           },
   { "read_mean",          read_mean       },
-  { "get_data",           get_data        },
+  { "get_blob",           get_blob        },
   // The end.
   { "END",                NULL            },
 };
