@@ -46,15 +46,17 @@ static int init_key = -2;
 // input and outputs a cell array.
 
 static mxArray* do_forward(const mxArray* const bottom) {
+  if (!mxIsCell(bottom))
+    mexErrMsgTxt("Wrong Input Type, cell array expected!");
   vector<Blob<float>*>& input_blobs = net_->input_blobs();
-  CHECK_EQ(static_cast<unsigned int>(mxGetDimensions(bottom)[0]),
-      input_blobs.size());
+  if (static_cast<unsigned int>(mxGetDimensions(bottom)[0]) != input_blobs.size())
+    mexErrMsgTxt("Input data dimension doesn't match with that of the network");
   for (unsigned int i = 0; i < input_blobs.size(); ++i) {
     const mxArray* const elem = mxGetCell(bottom, i);
-    CHECK(mxIsSingle(elem))
-        << "MatCaffe require single-precision float point data";
-    CHECK_EQ(mxGetNumberOfElements(elem), input_blobs[i]->count())
-        << "MatCaffe input size does not match the input size of the network";
+    if (!mxIsSingle(elem))
+        mexErrMsgTxt("MatCaffe require single-precision float point data");
+    if (mxGetNumberOfElements(elem) != input_blobs[i]->count())
+        mexErrMsgTxt("MatCaffe input size does not match the input size of the network");
     const float* const data_ptr =
         reinterpret_cast<const float* const>(mxGetPr(elem));
     switch (Caffe::mode()) {
@@ -171,6 +173,8 @@ static mxArray* do_backward_from(const mxArray* const l_name, const mxArray* con
   // Step 1. set the blob diff
   const shared_ptr<Blob<float> > diff_blob
         = net_->blob_by_name(blob_name);
+  if (!mxIsSingle(diff))
+    mexErrMsgTxt("Wrong input type, single expected");
   if (mxGetNumberOfElements(diff) != diff_blob->count()) {
     mexErrMsgTxt("input number of elements doesn't match the size of the network");
     return NULL;
@@ -192,10 +196,13 @@ static mxArray* do_backward_from(const mxArray* const l_name, const mxArray* con
 }
 
 
-static mxArray* do_backward(const mxArray* const top_diff, const int bp_type) {
+static mxArray* do_backward(const mxArray* const top_diff, const mxArray* const bp_t_) {
+  if (!mxIsNumeric(bp_t_) || !mxIsCell(top_diff))
+    mexErrMsgTxt("Wrong Input Type!");
+  int bp_type = static_cast<int>(mxGetScalar(bp_t_));
   vector<Blob<float>*>& output_blobs = net_->output_blobs();
-  CHECK_EQ(static_cast<unsigned int>(mxGetDimensions(top_diff)[0]),
-      output_blobs.size());
+  if (static_cast<unsigned int>(mxGetDimensions(top_diff)[0]) != output_blobs.size())
+    mexErrMsgTxt("Input data dimension doesn't match with that of the network");
   // First, copy the output diff
   for (unsigned int i = 0; i < output_blobs.size(); ++i) {
     const mxArray* const elem = mxGetCell(top_diff, i);
@@ -241,7 +248,36 @@ static mxArray* do_backward(const mxArray* const top_diff, const int bp_type) {
 }
 
 static mxArray* do_backward(const mxArray* const top_diff) {
-  return do_backward(top_diff, 0);
+  return do_backward(top_diff, mxCreateDoubleScalar(0));
+}
+
+static mxArray* do_get_weight(const mxArray* const l_name) {
+  if (!mxIsChar(l_name))
+    mexErrMsgTxt("Wrong Input Type: string expected");
+  char *layer_name = mxArrayToString(l_name);
+  if (!net_->has_layer(layer_name))
+    mexErrMsgTxt("Cannot find layer");
+  shared_ptr<Layer<float> > layer_ptr = net_->layer_by_name(layer_name);
+  if (layer_ptr->blobs().size() == 0)
+    mexErrMsgTxt("The specified layer has no weights");
+  shared_ptr<Blob<float> > blob_ptr = layer_ptr->blobs()[0]; // get weights only
+  mwSize dims[4] = {blob_ptr->width(), blob_ptr->height(),
+                    blob_ptr->channels(), blob_ptr->num()};
+  mxArray* mx_weights =
+    mxCreateNumericArray(4, dims, mxSINGLE_CLASS, mxREAL);
+  float* weights_ptr = reinterpret_cast<float*>(mxGetPr(mx_weights));
+
+  switch (Caffe::mode()) {
+  case Caffe::CPU:
+    caffe_copy(blob_ptr->count(), blob_ptr->cpu_data(), weights_ptr);
+    break;
+  case Caffe::GPU:
+    caffe_copy(blob_ptr->count(), blob_ptr->gpu_data(), weights_ptr);
+    break;
+  default:
+    LOG(FATAL) << "Unknown caffe mode: " << Caffe::mode();
+  }
+  return mx_weights;
 }
 
 static mxArray* do_get_weights() {
@@ -323,8 +359,13 @@ static mxArray* do_get_weights() {
   return mx_layers;
 }
 
-static void get_weights(MEX_ARGS) {
-  plhs[0] = do_get_weights();
+static void get_weights(MEX_ARGS) {\
+  if (nrhs == 0)
+    plhs[0] = do_get_weights();
+  else if (nrhs == 1)
+    plhs[0] = do_get_weight(prhs[0]);
+  else
+    mexErrMsgTxt("Wrong number of arguments");
 }
 
 static void set_mode_cpu(MEX_ARGS) {
@@ -400,7 +441,7 @@ static void backward(MEX_ARGS) {
     plhs[0] = do_backward(prhs[0]);
   }
   else if (nrhs == 2) {
-    plhs[0] = do_backward(prhs[0], static_cast<int>(mxGetScalar(prhs[1])));
+    plhs[0] = do_backward(prhs[0], prhs[1]);
   }
   else if (nrhs == 3) {
     plhs[0] = do_backward_from(prhs[0], prhs[1], prhs[2]);
