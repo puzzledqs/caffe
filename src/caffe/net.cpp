@@ -724,10 +724,6 @@ void Net<Dtype>::DummyBackward() {
                               cudaMemcpyDeviceToDevice));
       }
       else {
-        for (int bottom_id = 0; bottom_id < bottom_need_backward_[i].size(); bottom_id++) {
-          bottom_need_backward_[i][bottom_id] = true;
-          blob_need_backward_[bottom_id_vecs_[i][bottom_id]] = true;
-        }
         layers_[i]->Backward(top_vecs_[i], bottom_need_backward_[i], &bottom_vecs_[i]);
       }
     }
@@ -751,10 +747,6 @@ void Net<Dtype>::BackwardBypassNorm(const string& layer_name) {
                               cudaMemcpyDeviceToDevice));
       }
       else {
-        for (int bottom_id = 0; bottom_id < bottom_need_backward_[i].size(); bottom_id++) {
-          bottom_need_backward_[i][bottom_id] = true;
-          blob_need_backward_[bottom_id_vecs_[i][bottom_id]] = true;
-        }
         layers_[i]->Backward(top_vecs_[i], bottom_need_backward_[i], &bottom_vecs_[i]);
       }
     }

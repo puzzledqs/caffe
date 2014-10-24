@@ -156,9 +156,11 @@ static mxArray* get_input_diff() {
 }
 
 static mxArray* do_backward_from(const mxArray* const l_name, const mxArray* const b_name, const mxArray* const diff) {
-  if(!mxIsChar(b_name) || !mxIsChar(l_name) || !mxIsSingle(diff)) {
-      mexErrMsgTxt("require a string (blob name|layer name) as input");
+  if (!mxIsChar(b_name) || !mxIsChar(l_name)) {
+      mexErrMsgTxt("require a string (layer name|blob name) as input");
   }
+  if (!mxIsSingle(diff))
+      mexErrMsgTxt("require a single as input");
   char *layer_name = mxArrayToString(l_name);
   if (!net_->has_layer(layer_name)) {
       mexErrMsgTxt("Cannot find layer");
