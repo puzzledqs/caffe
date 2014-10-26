@@ -20,6 +20,17 @@ if nargin < 4
 end
 
 
+% set to use GPU or CPU
+if use_gpu
+  fprintf('Using GPU Mode\n');
+  caffe('set_mode_gpu');
+  caffe('set_device', device_id);
+else
+  fprintf('Using CPU Mode\n');
+  caffe('set_mode_cpu');
+end
+fprintf('Done with set_mode\n');
+
 if caffe('is_initialized') == 0
   if exist(model_file, 'file') == 0
     % NOTE: you'll have to get the pre-trained ILSVRC network
@@ -32,18 +43,6 @@ if caffe('is_initialized') == 0
   caffe('init', model_def_file, model_file)
 end
 fprintf('Done with init\n');
-
-% set to use GPU or CPU
-if use_gpu
-  fprintf('Using GPU Mode\n');
-  caffe('set_mode_gpu');
-  caffe('set_device', device_id);
-else
-  fprintf('Using CPU Mode\n');
-  caffe('set_mode_cpu');
-end
-fprintf('Done with set_mode\n');
-
 
 % put into test mode
 caffe('set_phase_test');
