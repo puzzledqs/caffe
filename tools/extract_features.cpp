@@ -1,6 +1,7 @@
 #include <stdio.h>  // for snprintf
 #include <string>
 #include <vector>
+#include <iomanip>
 
 #include "boost/algorithm/string.hpp"
 #include "google/protobuf/text_format.h"
@@ -14,15 +15,22 @@
 #include "caffe/util/io.hpp"
 #include "caffe/vision_layers.hpp"
 
+using namespace std;
 using namespace caffe;  // NOLINT(build/namespaces)
 
 template<typename Dtype>
 int feature_extraction_pipeline(int argc, char** argv);
 
+template<typename Dtype>
+int feature_extraction_pipeline_cmdline(int argc, char** argv);
+
 int main(int argc, char** argv) {
-  return feature_extraction_pipeline<float>(argc, argv);
+  // return feature_extraction_pipeline<float>(argc, argv);
+  return feature_extraction_pipeline_cmdline<float>(argc, argv);
 //  return feature_extraction_pipeline<double>(argc, argv);
 }
+
+
 
 template<typename Dtype>
 int feature_extraction_pipeline(int argc, char** argv) {
@@ -183,6 +191,105 @@ int feature_extraction_pipeline(int argc, char** argv) {
     LOG(ERROR)<< "Extracted features of " << image_indices[i] <<
         " query images for feature blob " << blob_names[i];
   }
+
+  LOG(ERROR)<< "Successfully extracted the features!";
+  return 0;
+}
+
+template<typename Dtype>
+int feature_extraction_pipeline_cmdline(int argc, char** argv) {
+  ::google::InitGoogleLogging(argv[0]);
+  const int num_required_args = 5;
+  if (argc < num_required_args) {
+    LOG(ERROR)<<
+    "This program takes in a trained network and an input data layer, and then"
+    " extract features of the input data produced by the net. The extract features are stuffed to the stdout for debug purposes\n"
+    "Usage: extract_features  pretrained_net_param"
+    "  feature_extraction_proto_file  extract_feature_blob_name1"
+    "  num_mini_batches  [CPU/GPU]"
+    "  [DEVICE_ID=0]\n";
+    return 1;
+  }
+  int arg_pos = num_required_args;
+
+  arg_pos = num_required_args;
+  if (argc > arg_pos && strcmp(argv[arg_pos], "GPU") == 0) {
+    LOG(ERROR)<< "Using GPU";
+    uint device_id = 0;
+    if (argc > arg_pos + 1) {
+      device_id = atoi(argv[arg_pos + 1]);
+      CHECK_GE(device_id, 0);
+    }
+    LOG(ERROR) << "Using Device_id=" << device_id;
+    Caffe::SetDevice(device_id);
+    Caffe::set_mode(Caffe::GPU);
+  } else {
+    LOG(ERROR) << "Using CPU";
+    Caffe::set_mode(Caffe::CPU);
+  }
+  Caffe::set_phase(Caffe::TEST);
+
+  arg_pos = 0;  // the name of the executable
+  string pretrained_binary_proto(argv[++arg_pos]);
+
+  // Expected prototxt contains at least one data layer such as
+  //  the layer data_layer_name and one feature blob such as the
+  //  fc7 top blob to extract features.
+  /*
+   layers {
+     name: "data_layer_name"
+     type: DATA
+     data_param {
+       source: "/path/to/your/images/to/extract/feature/images_leveldb"
+       mean_file: "/path/to/your/image_mean.binaryproto"
+       batch_size: 128
+       crop_size: 227
+       mirror: false
+     }
+     top: "data_blob_name"
+     top: "label_blob_name"
+   }
+   layers {
+     name: "drop7"
+     type: DROPOUT
+     dropout_param {
+       dropout_ratio: 0.5
+     }
+     bottom: "fc7"
+     top: "fc7"
+   }
+   */
+  string feature_extraction_proto(argv[++arg_pos]);
+  shared_ptr<Net<Dtype> > feature_extraction_net(
+      new Net<Dtype>(feature_extraction_proto));
+  feature_extraction_net->CopyTrainedLayersFrom(pretrained_binary_proto);
+
+  string extract_feature_blob_name(argv[++arg_pos]);
+
+  CHECK(feature_extraction_net->has_blob(extract_feature_blob_name))
+    << "Unknown feature blob name" << extract_feature_blob_name;
+
+  int num_mini_batches = atoi(argv[++arg_pos]);
+
+  LOG(ERROR)<< "Extacting Features";
+
+  Datum datum;
+  vector<Blob<float>*> input_vec;
+  for (int batch_index = 0; batch_index < num_mini_batches; ++batch_index) {
+    feature_extraction_net->Forward(input_vec);
+    const shared_ptr<Blob<Dtype> > feature_blob = feature_extraction_net
+          ->blob_by_name(extract_feature_blob_name);
+    int batch_size = feature_blob->num();
+    int dim_feature = feature_blob->count() / batch_size;
+    const float* data = feature_blob->cpu_data();
+    for (int i = 0; i < batch_size; i++) {
+      cout << setw(4) << i << ": ";
+      for (int j = 0; j < 5 && j < dim_feature; j++) {
+        cout << *data++ << " ";
+      }
+      cout << endl;
+    }
+  }  // for (int batch_index = 0; batch_index < num_mini_batches; ++batch_index
 
   LOG(ERROR)<< "Successfully extracted the features!";
   return 0;
