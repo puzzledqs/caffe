@@ -25,6 +25,7 @@ class Net {
  public:
   explicit Net(const NetParameter& param);
   explicit Net(const string& param_file);
+  explicit Net(const string& param_file, int dummy);
   virtual ~Net() {}
 
   /// @brief Initialize a network with a NetParameter.
@@ -103,7 +104,9 @@ class Net {
    *        another Net.
    */
   void CopyTrainedLayersFrom(const NetParameter& param);
+  void CopyTrainedLayersFrom(const NetParameterMMLab& param);
   void CopyTrainedLayersFrom(const string trained_filename);
+  void CopyTrainedLayersFrom(const string trained_filename, int type);
   /// @brief Writes the net to a proto.
   void ToProto(NetParameter* param, bool write_diff = false);
 
@@ -163,6 +166,8 @@ class Net {
   /// @brief return whether NetState state meets NetStateRule rule
   static bool StateMeetsRule(const NetState& state, const NetStateRule& rule,
       const string& layer_name);
+
+  static void TransformNetParameter(NetParameter* param, const NetParameterMMLab& param_mmlab);
 
  protected:
   // Helpers for Init.

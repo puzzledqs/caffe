@@ -288,6 +288,8 @@ class ImageDataLayer : public BasePrefetchingDataLayer<Dtype> {
   explicit ImageDataLayer(const LayerParameter& param)
       : BasePrefetchingDataLayer<Dtype>(param) {}
   virtual ~ImageDataLayer();
+  virtual void LayerSetUp(const vector<Blob<Dtype>*>& bottom,
+      vector<Blob<Dtype>*>* top);
   virtual void DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
       vector<Blob<Dtype>*>* top);
 
@@ -296,6 +298,7 @@ class ImageDataLayer : public BasePrefetchingDataLayer<Dtype> {
   }
   virtual inline int ExactNumBottomBlobs() const { return 0; }
   virtual inline int ExactNumTopBlobs() const { return 2; }
+  void LoadImageList(const char *filelist);
 
  protected:
   shared_ptr<Caffe::RNG> prefetch_rng_;

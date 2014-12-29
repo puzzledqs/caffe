@@ -17,58 +17,26 @@ ImageDataLayer<Dtype>::~ImageDataLayer<Dtype>() {
   this->JoinPrefetchThread();
 }
 
+/// This new implementation if for feature extraction only.
 template <typename Dtype>
 void ImageDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
       vector<Blob<Dtype>*>* top) {
   const int new_height = this->layer_param_.image_data_param().new_height();
   const int new_width  = this->layer_param_.image_data_param().new_width();
-  CHECK((new_height == 0 && new_width == 0) ||
-      (new_height > 0 && new_width > 0)) << "Current implementation requires "
-      "new_height and new_width to be set at the same time.";
-  // Read the file with filenames and labels
-  const string& source = this->layer_param_.image_data_param().source();
-  LOG(INFO) << "Opening file " << source;
-  std::ifstream infile(source.c_str());
-  string filename;
-  int label;
-  while (infile >> filename >> label) {
-    lines_.push_back(std::make_pair(filename, label));
-  }
+  CHECK((new_height > 0 && new_width > 0)) << "Current implementation requires ""new_height and new_width to be set at the same time.";
 
-  if (this->layer_param_.image_data_param().shuffle()) {
-    // randomly shuffle data
-    LOG(INFO) << "Shuffling data";
-    const unsigned int prefetch_rng_seed = caffe_rng_rand();
-    prefetch_rng_.reset(new Caffe::RNG(prefetch_rng_seed));
-    ShuffleImages();
-  }
-  LOG(INFO) << "A total of " << lines_.size() << " images.";
-
-  lines_id_ = 0;
-  // Check if we would need to randomly skip a few data points
-  if (this->layer_param_.image_data_param().rand_skip()) {
-    unsigned int skip = caffe_rng_rand() %
-        this->layer_param_.image_data_param().rand_skip();
-    LOG(INFO) << "Skipping first " << skip << " data points.";
-    CHECK_GT(lines_.size(), skip) << "Not enough points to skip";
-    lines_id_ = skip;
-  }
   // Read a data point, and use it to initialize the top blob.
-  Datum datum;
-  CHECK(ReadImageToDatum(lines_[lines_id_].first, lines_[lines_id_].second,
-                         new_height, new_width, &datum));
+  int channel = 3;
   // image
   const int crop_size = this->layer_param_.transform_param().crop_size();
   const int batch_size = this->layer_param_.image_data_param().batch_size();
   if (crop_size > 0) {
-    (*top)[0]->Reshape(batch_size, datum.channels(), crop_size, crop_size);
-    this->prefetch_data_.Reshape(batch_size, datum.channels(), crop_size,
+    (*top)[0]->Reshape(batch_size, channel, crop_size, crop_size);
+    this->prefetch_data_.Reshape(batch_size, channel, crop_size,
                                  crop_size);
   } else {
-    (*top)[0]->Reshape(batch_size, datum.channels(), datum.height(),
-                       datum.width());
-    this->prefetch_data_.Reshape(batch_size, datum.channels(), datum.height(),
-        datum.width());
+    (*top)[0]->Reshape(batch_size, channel, new_height, new_width);
+    this->prefetch_data_.Reshape(batch_size, channel, new_height, new_width);
   }
   LOG(INFO) << "output data size: " << (*top)[0]->num() << ","
       << (*top)[0]->channels() << "," << (*top)[0]->height() << ","
@@ -77,11 +45,104 @@ void ImageDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   (*top)[1]->Reshape(batch_size, 1, 1, 1);
   this->prefetch_label_.Reshape(batch_size, 1, 1, 1);
   // datum size
-  this->datum_channels_ = datum.channels();
-  this->datum_height_ = datum.height();
-  this->datum_width_ = datum.width();
-  this->datum_size_ = datum.channels() * datum.height() * datum.width();
+  this->datum_channels_ = channel;
+  this->datum_height_ = new_height;
+  this->datum_width_ = new_width;
+  this->datum_size_ = channel * new_height * new_width;
 }
+
+template <typename Dtype>
+void ImageDataLayer<Dtype>::LoadImageList(const char *filelist) {
+  lines_.clear();
+  std::cout << "Opening file " << filelist << std::endl;
+  std::ifstream infile(filelist);
+  string filename;
+  while (infile >> filename) {
+    if (filename.length() > 0)
+      lines_.push_back(std::make_pair(filename, 0));
+  }
+  std::cout << "A total of " << lines_.size() << " images." << std::endl;
+  this->prefetch_data_.mutable_cpu_data();
+  if (this->output_labels_) {
+    this->prefetch_label_.mutable_cpu_data();
+  }
+  lines_id_ = 0;
+  DLOG(INFO) << "Initializing prefetch";
+  this->CreatePrefetchThread();
+  DLOG(INFO) << "Prefetch initialized.";
+}
+
+template <typename Dtype>
+void ImageDataLayer<Dtype>::LayerSetUp(
+    const vector<Blob<Dtype>*>& bottom, vector<Blob<Dtype>*>* top) {
+  BaseDataLayer<Dtype>::LayerSetUp(bottom, top);
+}
+
+// template <typename Dtype>
+// void ImageDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
+//       vector<Blob<Dtype>*>* top) {
+//   const int new_height = this->layer_param_.image_data_param().new_height();
+//   const int new_width  = this->layer_param_.image_data_param().new_width();
+//   CHECK((new_height == 0 && new_width == 0) ||
+//       (new_height > 0 && new_width > 0)) << "Current implementation requires "
+//       "new_height and new_width to be set at the same time.";
+//   // Read the file with filenames and labels
+//   const string& source = this->layer_param_.image_data_param().source();
+//   LOG(INFO) << "Opening file " << source;
+//   std::ifstream infile(source.c_str());
+//   string filename;
+//   int label;
+//   while (infile >> filename >> label) {
+//     lines_.push_back(std::make_pair(filename, label));
+//   }
+
+//   if (this->layer_param_.image_data_param().shuffle()) {
+//     // randomly shuffle data
+//     LOG(INFO) << "Shuffling data";
+//     const unsigned int prefetch_rng_seed = caffe_rng_rand();
+//     prefetch_rng_.reset(new Caffe::RNG(prefetch_rng_seed));
+//     ShuffleImages();
+//   }
+//   LOG(INFO) << "A total of " << lines_.size() << " images.";
+
+//   lines_id_ = 0;
+//   // Check if we would need to randomly skip a few data points
+//   if (this->layer_param_.image_data_param().rand_skip()) {
+//     unsigned int skip = caffe_rng_rand() %
+//         this->layer_param_.image_data_param().rand_skip();
+//     LOG(INFO) << "Skipping first " << skip << " data points.";
+//     CHECK_GT(lines_.size(), skip) << "Not enough points to skip";
+//     lines_id_ = skip;
+//   }
+//   // Read a data point, and use it to initialize the top blob.
+//   Datum datum;
+//   CHECK(ReadImageToDatum(lines_[lines_id_].first, lines_[lines_id_].second,
+//                          new_height, new_width, &datum));
+//   // image
+//   const int crop_size = this->layer_param_.transform_param().crop_size();
+//   const int batch_size = this->layer_param_.image_data_param().batch_size();
+//   if (crop_size > 0) {
+//     (*top)[0]->Reshape(batch_size, datum.channels(), crop_size, crop_size);
+//     this->prefetch_data_.Reshape(batch_size, datum.channels(), crop_size,
+//                                  crop_size);
+//   } else {
+//     (*top)[0]->Reshape(batch_size, datum.channels(), datum.height(),
+//                        datum.width());
+//     this->prefetch_data_.Reshape(batch_size, datum.channels(), datum.height(),
+//         datum.width());
+//   }
+//   LOG(INFO) << "output data size: " << (*top)[0]->num() << ","
+//       << (*top)[0]->channels() << "," << (*top)[0]->height() << ","
+//       << (*top)[0]->width();
+//   // label
+//   (*top)[1]->Reshape(batch_size, 1, 1, 1);
+//   this->prefetch_label_.Reshape(batch_size, 1, 1, 1);
+//   // datum size
+//   this->datum_channels_ = datum.channels();
+//   this->datum_height_ = datum.height();
+//   this->datum_width_ = datum.width();
+//   this->datum_size_ = datum.channels() * datum.height() * datum.width();
+// }
 
 template <typename Dtype>
 void ImageDataLayer<Dtype>::ShuffleImages() {

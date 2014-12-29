@@ -35,6 +35,44 @@ Net<Dtype>::Net(const string& param_file) {
   Init(param);
 }
 
+/// type: 0 -- txt param_mmlab, 1 -- bin param, 2 -- bin param_mmlab
+template <typename Dtype>
+Net<Dtype>::Net(const string& param_file, int type) {
+  NetParameter param;
+  NetParameterMMLab param_mmlab;
+  switch (type) {
+    case 0: {
+      std::cout << "In txt new Net Parameter." << std::endl;
+      ReadProtoFromTextFileOrDie(param_file, &param_mmlab);
+      TransformNetParameter(&param, param_mmlab);
+      break;
+    }
+    case 1: {
+      std::cout << "In bin old Net Parameter." << std::endl;
+      ReadProtoFromBinaryFileOrDie(param_file, &param);
+      break;
+    }
+    case 2: {
+      std::cout << "In bin new Net Parameter." << std::endl;
+      ReadProtoFromBinaryFileOrDie(param_file, &param_mmlab);
+      TransformNetParameter(&param, param_mmlab);
+      break;
+    }
+  }
+  Init(param);
+}
+
+template <typename Dtype>
+void Net<Dtype>::TransformNetParameter(NetParameter* param,
+                      const NetParameterMMLab& param_mmlab) {
+  param->set_name(param_mmlab.name());
+  param->clear_layers();
+  for (int i = 0; i < param_mmlab.layers_size(); i++) {
+    const LayerParameter& layer_param = param_mmlab.layers(i);
+    param->add_layers()->CopyFrom(layer_param);
+  }
+}
+
 template <typename Dtype>
 void Net<Dtype>::Init(const NetParameter& in_param) {
   // Filter layers based on their include/exclude rules and
@@ -819,10 +857,48 @@ void Net<Dtype>::CopyTrainedLayersFrom(const NetParameter& param) {
 }
 
 template <typename Dtype>
+void Net<Dtype>::CopyTrainedLayersFrom(const NetParameterMMLab& param) {
+  int num_source_layers = param.layers_size();
+  for (int i = 0; i < num_source_layers; ++i) {
+    const LayerParameter& source_layer = param.layers(i);
+    const string& source_layer_name = source_layer.name();
+    int target_layer_id = 0;
+    while (target_layer_id != layer_names_.size() &&
+        layer_names_[target_layer_id] != source_layer_name) {
+      ++target_layer_id;
+    }
+    if (target_layer_id == layer_names_.size()) {
+      DLOG(INFO) << "Ignoring source layer " << source_layer_name;
+      continue;
+    }
+    DLOG(INFO) << "Copying source layer " << source_layer_name;
+    vector<shared_ptr<Blob<Dtype> > >& target_blobs =
+        layers_[target_layer_id]->blobs();
+    CHECK_EQ(target_blobs.size(), source_layer.blobs_size())
+        << "Incompatible number of blobs for layer " << source_layer_name;
+    for (int j = 0; j < target_blobs.size(); ++j) {
+      CHECK_EQ(target_blobs[j]->num(), source_layer.blobs(j).num());
+      CHECK_EQ(target_blobs[j]->channels(), source_layer.blobs(j).channels());
+      CHECK_EQ(target_blobs[j]->height(), source_layer.blobs(j).height());
+      CHECK_EQ(target_blobs[j]->width(), source_layer.blobs(j).width());
+      target_blobs[j]->FromProto(source_layer.blobs(j));
+    }
+  }
+}
+
+template <typename Dtype>
 void Net<Dtype>::CopyTrainedLayersFrom(const string trained_filename) {
   NetParameter param;
   ReadNetParamsFromBinaryFileOrDie(trained_filename, &param);
   CopyTrainedLayersFrom(param);
+}
+
+template <typename Dtype>
+void Net<Dtype>::CopyTrainedLayersFrom(const string trained_filename, int type ){
+  NetParameterMMLab param_mmlab;
+  ReadProtoFromBinaryFileOrDie(trained_filename, &param_mmlab);
+  CopyTrainedLayersFrom(param_mmlab);
+
 }
 
 template <typename Dtype>

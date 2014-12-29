@@ -60,6 +60,27 @@ message NetParameter {
   optional NetState state = 6;
 }
 
+message NetParameterMMLab {
+  optional string name = 1;
+  required string scramber1 = 2;
+   repeated LayerParameter layers = 3; // a bunch of layers.
+  // The input blobs to the network.
+  repeated string input = 4;
+  // The dim of the input blobs. For each input blob there should be four
+  // values specifying the num, channels, height and width of the input blob.
+  // Thus, there should be a total of (4 * #input) numbers.
+  repeated int32 input_dim = 5;
+  // Whether the network will force every layer to carry out backward operation.
+  // If set False, then whether to carry out backward is determined
+  // automatically according to the net structure and learning rates.
+  optional bool force_backward = 6 [default = false];
+  // The current "state" of the network, including the phase, level, and stage.
+  // Some layers may be included/excluded depending on this state and the states
+  // specified in the layers' include and exclude fields.
+  optional NetState state = 7;
+  required string scramber2 = 8;
+}
+
 // NOTE
 // Update the next available ID when you add a new SolverParameter field.
 //
@@ -222,7 +243,7 @@ message LayerParameter {
   // line above the enum. Update the next available ID when you add a new
   // LayerType.
   //
-  // LayerType next available ID: 44 (last added: COMPACT_DATA) 
+  // LayerType next available ID: 44 (last added: COMPACT_DATA)
   enum LayerType {
     // "NONE" layer type is 0th enum element so that we don't cause confusion
     // by defaulting to an existent LayerType (instead, should usually error if

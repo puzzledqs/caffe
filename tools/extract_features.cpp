@@ -2,6 +2,7 @@
 #include <string>
 #include <vector>
 #include <iomanip>
+#include <gflags/gflags.h>
 
 #include "boost/algorithm/string.hpp"
 #include "google/protobuf/text_format.h"
@@ -198,6 +199,7 @@ int feature_extraction_pipeline(int argc, char** argv) {
 
 template<typename Dtype>
 int feature_extraction_pipeline_cmdline(int argc, char** argv) {
+    FLAGS_minloglevel = 0;
   ::google::InitGoogleLogging(argv[0]);
   const int num_required_args = 5;
   if (argc < num_required_args) {
@@ -231,50 +233,51 @@ int feature_extraction_pipeline_cmdline(int argc, char** argv) {
 
   arg_pos = 0;  // the name of the executable
   string pretrained_binary_proto(argv[++arg_pos]);
-
-  // Expected prototxt contains at least one data layer such as
-  //  the layer data_layer_name and one feature blob such as the
-  //  fc7 top blob to extract features.
-  /*
-   layers {
-     name: "data_layer_name"
-     type: DATA
-     data_param {
-       source: "/path/to/your/images/to/extract/feature/images_leveldb"
-       mean_file: "/path/to/your/image_mean.binaryproto"
-       batch_size: 128
-       crop_size: 227
-       mirror: false
-     }
-     top: "data_blob_name"
-     top: "label_blob_name"
-   }
-   layers {
-     name: "drop7"
-     type: DROPOUT
-     dropout_param {
-       dropout_ratio: 0.5
-     }
-     bottom: "fc7"
-     top: "fc7"
-   }
-   */
   string feature_extraction_proto(argv[++arg_pos]);
-  shared_ptr<Net<Dtype> > feature_extraction_net(
-      new Net<Dtype>(feature_extraction_proto));
+  // shared_ptr<Net<Dtype> > feature_extraction_net(
+  //     new Net<Dtype>(feature_extraction_proto));  // use NetParam
+  // shared_ptr<Net<Dtype> > feature_extraction_net(
+  //       new Net<Dtype>(feature_extraction_proto, 0)); // use NetParamMMLab
+  NetParameter param;
+  NetParameterMMLab param_mmlab;
+  ReadProtoFromTextFileOrDie(feature_extraction_proto, &param_mmlab);
+  Net<Dtype>::TransformNetParameter(&param, param_mmlab);
+  // param.mutable_layers(0)->mutable_image_data_param()->set_source("test_image_list.txt");
+  param.mutable_layers(0)->mutable_transform_param()->set_mean_file("imagenet_mean_crop.binaryproto");
+  shared_ptr<Net<Dtype> > feature_extraction_net(new Net<Dtype>(param));
   feature_extraction_net->CopyTrainedLayersFrom(pretrained_binary_proto);
-
   string extract_feature_blob_name(argv[++arg_pos]);
 
   CHECK(feature_extraction_net->has_blob(extract_feature_blob_name))
     << "Unknown feature blob name" << extract_feature_blob_name;
-
   int num_mini_batches = atoi(argv[++arg_pos]);
 
+  boost::static_pointer_cast<ImageDataLayer<Dtype> >(feature_extraction_net->layer_by_name("data"))->LoadImageList(string("test_image_list_v2.txt").c_str());
   LOG(ERROR)<< "Extacting Features";
 
   Datum datum;
   vector<Blob<float>*> input_vec;
+  for (int batch_index = 0; batch_index < num_mini_batches; ++batch_index) {
+    feature_extraction_net->Forward(input_vec);
+    const shared_ptr<Blob<Dtype> > feature_blob = feature_extraction_net
+          ->blob_by_name(extract_feature_blob_name);
+    int batch_size = feature_blob->num();
+    int dim_feature = feature_blob->count() / batch_size;
+    const float* data = feature_blob->cpu_data();
+    for (int i = 0; i < batch_size; i++) {
+      cout << setw(4) << i << ": ";
+      for (int j = 0; j < 5 && j < dim_feature; j++) {
+        cout << *data++ << " ";
+      }
+      cout << endl;
+    }
+  }  // for (int batch_index = 0; batch_index < num_mini_batches; ++batch_index
+
+  LOG(ERROR)<< "Successfully extracted the features!";
+
+  boost::static_pointer_cast<ImageDataLayer<Dtype> >(feature_extraction_net->layer_by_name("data"))->LoadImageList(string("test_image_list_v3.txt").c_str());
+  LOG(ERROR)<< "Extacting Features";
+
   for (int batch_index = 0; batch_index < num_mini_batches; ++batch_index) {
     feature_extraction_net->Forward(input_vec);
     const shared_ptr<Blob<Dtype> > feature_blob = feature_extraction_net
