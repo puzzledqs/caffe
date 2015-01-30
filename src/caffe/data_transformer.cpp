@@ -273,6 +273,72 @@ void DataTransformer<Dtype>::Transform(const int batch_item_id,
 }
 
 template <typename Dtype>
+void DataTransformer<Dtype>::Transform(const int batch_item_id,
+                                       const cv::Mat& cv_img,
+                                       const Dtype* mean,
+                                       Dtype* transformed_data) {
+  const int channels = cv_img.channels();
+  const int height = cv_img.rows;
+  const int width = cv_img.cols;
+  const int size = channels * height * width;
+
+  const int crop_size = param_.crop_size();
+  const bool mirror = param_.mirror();
+  const Dtype scale = param_.scale();
+
+  if (mirror && crop_size == 0) {
+    LOG(FATAL) << "Current implementation requires mirror and crop_size to be "
+                << "set at the same time.";
+  }
+
+  if (crop_size) {
+    int h_off, w_off;
+    if (phase_ == Caffe::TRAIN) {
+      h_off = Rand() % (height - crop_size);
+      w_off = Rand() % (width - crop_size);
+    } else {
+      h_off = (height - crop_size) / 2;
+      w_off = (width - crop_size) / 2;
+    }
+    if (mirror && Rand() % 2) {
+      // Copy mirrored version
+      for (int c = 0; c < channels; ++c) {
+        for (int h = 0; h < crop_size; ++h) {
+          for (int w = 0; w < crop_size; ++w) {
+            int mean_off = (256 - crop_size) / 2;
+            int mean_index = (c * 256 + h + mean_off) * 256 + w + mean_off;
+            int top_index = ((batch_item_id * channels + c) * crop_size + h)
+                * crop_size + (crop_size - 1 - w);
+            Dtype datum_element =
+              static_cast<Dtype>(cv_img.at<cv::Vec3b>(h + h_off, w + w_off)[c]);
+            transformed_data[top_index] =
+              (datum_element - mean[mean_index]) * scale;
+          }
+        }
+      }
+    } else {
+      // Normal copy
+      for (int c = 0; c < channels; ++c) {
+        for (int h = 0; h < crop_size; ++h) {
+          for (int w = 0; w < crop_size; ++w) {
+            int mean_off = (256 - crop_size) / 2;
+            int top_index = ((batch_item_id * channels + c) * crop_size + h)
+                * crop_size + w;
+            int mean_index = (c * 256 + h + mean_off) * 256 + w + mean_off;
+            Dtype datum_element =
+              static_cast<Dtype>(cv_img.at<cv::Vec3b>(h + h_off, w + w_off)[c]);
+            transformed_data[top_index] =
+                (datum_element - mean[mean_index]) * scale;
+          }
+        }
+      }
+    }
+  } else {
+    LOG(FATAL) << "NOT Implemented!!";
+  }
+}
+
+template <typename Dtype>
 void DataTransformer<Dtype>::InitRand() {
   const bool needs_rand = (phase_ == Caffe::TRAIN) &&
       (param_.mirror() || param_.crop_size());

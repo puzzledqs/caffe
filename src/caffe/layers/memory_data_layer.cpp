@@ -3,6 +3,8 @@
 #include "caffe/data_layers.hpp"
 #include "caffe/layer.hpp"
 #include "caffe/util/io.hpp"
+#include <opencv2/core/core.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
 
 namespace caffe {
 
@@ -49,6 +51,37 @@ void MemoryDataLayer<Dtype>::AddDatumVector(const vector<Datum>& datum_vector) {
     top_label[batch_item_id] = datum_vector[batch_item_id].label();
   }
   // num_images == batch_size_
+  Reset(top_data, top_label, batch_size_);
+  has_new_data_ = true;
+}
+
+template <typename Dtype>
+void MemoryDataLayer<Dtype>::AddCvMat(const vector<cv::Mat>& images) {
+  CHECK(!has_new_data_) <<
+    "Can't add Datum when earlier ones havn't been consumed"
+    << " by the upper layers";
+  size_t num = images.size();
+  CHECK_GT(num, 0) << "There is no datum to add";
+  CHECK_LE(num, batch_size_) <<
+    "The number of added datum must be no greater than the batch size";
+
+  Dtype* top_data = added_data_.mutable_cpu_data();
+  Dtype* top_label = added_label_.mutable_cpu_data();
+  for (int i = 0; i < images.size(); i++) {
+    cv::Mat cv_img;
+    const cv::Mat& cv_img_origin = images[i];
+    if (!cv_img_origin.data) {
+        LOG(ERROR) << "Could not load data";
+        return;
+    }
+    if (cv_img_origin.rows == this->datum_height_ && cv_img_origin.cols == this->datum_width_)
+      this->data_transformer_.Transform(i, cv_img_origin, this->mean_, top_data);
+    else {
+      cv::resize(cv_img_origin, cv_img, cv::Size(this->datum_height_, this->datum_width_));
+      this->data_transformer_.Transform(i, cv_img, this->mean_, top_data);
+    }
+    top_label[i] = 0;
+  }
   Reset(top_data, top_label, batch_size_);
   has_new_data_ = true;
 }

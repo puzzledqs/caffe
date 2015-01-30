@@ -5,9 +5,6 @@
 #include "caffe/proto/caffe.pb.h"
 
 #include <opencv2/core/core.hpp>
-#include <opencv2/highgui/highgui.hpp>
-#include <opencv2/highgui/highgui_c.h>
-#include <opencv2/imgproc/imgproc.hpp>
 
 using namespace cv;
 
@@ -75,6 +72,8 @@ class DataTransformer {
   void Transform(const int batch_item_id, const Datum& datum,
                  const Dtype* mean, Dtype* transformed_data);
   void Transform(const int batch_item_id, IplImage *img,
+                 const Dtype* mean, Dtype* transformed_data);
+  void Transform(const int batch_item_id, const cv::Mat& cv_img,
                  const Dtype* mean, Dtype* transformed_data);
  protected:
   virtual unsigned int Rand();
