@@ -744,6 +744,7 @@ template <typename Dtype>
 void Net<Dtype>::DummyBackward() {
   // std::cout << "hello" << std::endl;
   // stuff the diff() of last layer with its forward responses...
+#ifndef CPU_ONLY
   CUDA_CHECK(cudaMemcpy(top_vecs_[top_vecs_.size()-1][0]->mutable_gpu_diff(),
                         top_vecs_[top_vecs_.size()-1][0]->gpu_data(),
                         top_vecs_[top_vecs_.size()-1][0]->count()*sizeof(Dtype),
@@ -766,10 +767,14 @@ void Net<Dtype>::DummyBackward() {
       }
     }
   }
+#else
+  NOT_IMPLEMENTED;
+#endif
 }
 
 template <typename Dtype>
 void Net<Dtype>::BackwardBypassNorm(const string& layer_name) {
+#ifndef CPU_ONLY
   int layer_index = layer_names_index_[layer_name];
   Dtype* cpu_diff = top_vecs_[layer_index][0]->mutable_cpu_diff();
   CUDA_CHECK(cudaDeviceSynchronize());
@@ -789,6 +794,9 @@ void Net<Dtype>::BackwardBypassNorm(const string& layer_name) {
       }
     }
   }
+#else
+  NOT_IMPLEMENTED;
+#endif
 }
 
 template <typename Dtype>

@@ -73,7 +73,7 @@ void SoftmaxWithLossTreeLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bot
     CHECK_EQ(to.size(), bottom[t]->count()/bottom[t]->num()) << this->layer_param_.name()
           << ": mismatched label sets and softmax dim";
     // construct a tree
-    to_read -= 1; 
+    to_read -= 1;
     if (to_read == 0) {
       depth_end_position_.push_back(t+1);
       to_read = 0;
@@ -139,7 +139,7 @@ void SoftmaxWithLossTreeLayer<Dtype>::Forward_cpu(
     else
       ; //(*top)[0]->mutable_cpu_data()[0] = 0;
   }
-  
+
   // output the loss per tree layer
   for (int d = 0; d < tree_depth_; ++d) {
     (*top)[d]->mutable_cpu_data()[0] = 0;
@@ -177,7 +177,7 @@ void SoftmaxWithLossTreeLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& t
         CHECK(prob_[node_idx]->height() == 1);
         CHECK(prob_[node_idx]->width() == 1);
         caffe_copy(dim, prob_data + i * dim, bottom_diff + i * dim);
-  
+
         int this_label;
         for (int j = 0; j < spatial_dim; ++j) {
           int raw_label = static_cast<int>(label[i * spatial_dim + j]);
@@ -231,7 +231,7 @@ void SoftmaxWithLossTreeLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& t
 }
 
 template <typename Dtype>
-void SoftmaxWithLossTreeLayer<Dtype>::ResetChildrenGradient(vector<Blob<Dtype>*>* bottom, 
+void SoftmaxWithLossTreeLayer<Dtype>::ResetChildrenGradient(vector<Blob<Dtype>*>* bottom,
     int i, int node_idx, int depth_level) {
   if (depth_level < tree_depth_) {
     int skip_nodes = 0;
@@ -247,6 +247,10 @@ void SoftmaxWithLossTreeLayer<Dtype>::ResetChildrenGradient(vector<Blob<Dtype>*>
     }
   }
 }
+
+#ifdef CPU_ONLY
+STUB_GPU(SoftmaxWithLossTreeLayer)
+#endif
 
 INSTANTIATE_CLASS(SoftmaxWithLossTreeLayer);
 
