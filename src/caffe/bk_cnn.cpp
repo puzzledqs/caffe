@@ -39,10 +39,10 @@ static void Init(string def, string model, string mean, DeviceType dev_type, int
     Caffe::set_phase(Caffe::TEST);
 
     NetParameter param;
-    // NetParameterMMLab param_mmlab;
-    // ReadProtoFromBinaryFileOrDie(def, &param_mmlab);
-    // Net<float>::TransformNetParameter(&param, param_mmlab);
-    ReadProtoFromTextFileOrDie(def, &param);
+    NetParameterMMLab param_mmlab;
+    ReadProtoFromBinaryFileOrDie(def, &param_mmlab);
+    Net<float>::TransformNetParameter(&param, param_mmlab);
+    //ReadProtoFromTextFileOrDie(def, &param);
     param.mutable_layers(0)->mutable_transform_param()->set_mean_file(mean);
     feature_extraction_net_.reset(new Net<float>(param));
     feature_extraction_net_->CopyTrainedLayersFrom(model);
