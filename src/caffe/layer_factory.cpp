@@ -191,6 +191,8 @@ Layer<Dtype>* GetLayer(const LayerParameter& param) {
     return new BNLLLayer<Dtype>(param);
   case LayerParameter_LayerType_COMPACT_DATA:
     return new CompactDataLayer<Dtype>(param);
+  case LayerParameter_LayerType_COMPACT_DATA_MULTI_LABEL:
+    return new CompactDataMultiLabelLayer<Dtype>(param);
   case LayerParameter_LayerType_CONCAT:
     return new ConcatLayer<Dtype>(param);
   case LayerParameter_LayerType_CONTRASTIVE_LOSS:

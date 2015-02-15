@@ -222,7 +222,7 @@ message LayerParameter {
   // line above the enum. Update the next available ID when you add a new
   // LayerType.
   //
-  // LayerType next available ID: 44 (last added: COMPACT_DATA)
+  // LayerType next available ID: 45 (last added: COMPACT_DATA_MULTILABEL)
   enum LayerType {
     // "NONE" layer type is 0th enum element so that we don't cause confusion
     // by defaulting to an existent LayerType (instead, should usually error if
@@ -233,6 +233,7 @@ message LayerParameter {
     ARGMAX = 30;
     BNLL = 2;
     COMPACT_DATA = 43;
+    COMPACT_DATA_MULTI_LABEL = 44;
     CONCAT = 3;
     CONTRASTIVE_LOSS = 37;
     CONVOLUTION = 4;
@@ -441,6 +442,7 @@ message DataParameter {
   // data.
   optional bool mirror = 6 [default = false];
   optional uint32 mpi_skip_step = 15 [default=0];
+  optional string label_file = 16;
 }
 
 // Message that stores parameters used by DropoutLayer
