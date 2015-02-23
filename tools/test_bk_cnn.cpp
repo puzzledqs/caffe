@@ -10,8 +10,9 @@ int main() {
     // string def("overfeat_batch128_ImageDataLayer.mmlab.binproto");
     string def_image("overfeat_batch128_ImageDataLayer.mmlab.binproto");
     string def_memory("overfeat_batch128_MemoryDataLayer.mmlab.binproto");
-    string model("overfeat_iter_5000.caffemodel");
-    string mean("imagenet_mean_crop.binaryproto");
+    // string model("overfeat_iter_5000.caffemodel");
+    string model("overfeat_bk_full_iter_25000.caffemodel");
+    string mean("imagenet_mean_crop.binproto");
     /* imagelist is a text file in which each line contains an image path;
         currently we requrie imagelist contain 128 images, i.e., 128 lines */
     string imagelist("example_data/neg_image_list.txt");
