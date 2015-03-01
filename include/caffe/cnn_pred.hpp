@@ -15,21 +15,21 @@ namespace CnnPred {
     /// \param mean image mean, can be found under libbkcnn/data
     /// \param dev_type indicates the device this lib is to run on
     /// \param dev_id indicates the GPU id to run on (effective only when dev_type is set to GPU)
-    static void InitCnnModel(string def, string model, string mean,
+    void InitCnnModel(string def, string model, string mean,
                     DeviceType dev_type = CPU, int dev_id = 0);
 
     // compute single image
-    static void ComputeSingleScore(const char *imagepath, vector<float>* scores);
+    void ComputeSingleScore(const char *imagepath, vector<float>* scores);
 
     // compute arbitrary number of images
-    static void ComputeScores(const char *imagelist, vector<vector<float> >* scores);
+    void ComputeScores(const char *imagelist, vector<vector<float> >* scores);
 
     // compu\te at most one mini_batch, i.e. images.size() <= batch_size
-    static void ComputeScores(const vector<cv::Mat> &images, vector<vector<float> >* scores);
+    void ComputeScores(const vector<cv::Mat> &images, vector<vector<float> >* scores);
 
     /// \brief Release the memory occupied by the cnn model
     ///
     /// must called before the program exits
-    static void ReleaseCnnModel();
+    void ReleaseCnnModel();
 }
 #endif

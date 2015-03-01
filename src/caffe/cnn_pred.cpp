@@ -87,6 +87,7 @@ void ComputeScores(const char *imagelist, vector<vector<float> >* scores) {
             scores->push_back(scr);
         }
         start_pos = end_pos;
+        std::cout << start_pos << " images computed" << std::endl;
     }
     LOG(ERROR)<< "Successfully extracted the features!";
 }

@@ -20,11 +20,13 @@ void MemoryDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   CHECK_GT(batch_size_ * this->datum_size_, 0) <<
       "batch_size, channels, height, and width must be specified and"
       " positive in memory_data_param";
-  (*top)[0]->Reshape(batch_size_, this->datum_channels_, this->datum_height_,
-                     this->datum_width_);
+  int crop_size = this->layer_param_.transform_param().crop_size();
+  CHECK_GT(crop_size, 0) << "crop size must be greater than 0";
+  (*top)[0]->Reshape(batch_size_, this->datum_channels_, crop_size,
+                     crop_size);
   (*top)[1]->Reshape(batch_size_, 1, 1, 1);
-  added_data_.Reshape(batch_size_, this->datum_channels_, this->datum_height_,
-                      this->datum_width_);
+  added_data_.Reshape(batch_size_, this->datum_channels_, crop_size,
+                      crop_size);
   added_label_.Reshape(batch_size_, 1, 1, 1);
   data_ = NULL;
   labels_ = NULL;
