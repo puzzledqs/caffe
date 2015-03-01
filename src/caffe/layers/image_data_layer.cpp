@@ -52,7 +52,7 @@ void ImageDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
 }
 
 template <typename Dtype>
-void ImageDataLayer<Dtype>::LoadImageList(const char *filelist) {
+int ImageDataLayer<Dtype>::LoadImageList(const char *filelist) {
   lines_.clear();
   std::cout << "Opening file " << filelist << std::endl;
   std::ifstream infile(filelist);
@@ -70,6 +70,7 @@ void ImageDataLayer<Dtype>::LoadImageList(const char *filelist) {
   DLOG(INFO) << "Initializing prefetch";
   this->CreatePrefetchThread();
   DLOG(INFO) << "Prefetch initialized.";
+  return lines_.size();
 }
 
 template <typename Dtype>
