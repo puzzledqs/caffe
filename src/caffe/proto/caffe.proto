@@ -222,7 +222,7 @@ message LayerParameter {
   // line above the enum. Update the next available ID when you add a new
   // LayerType.
   //
-  // LayerType next available ID: 45 (last added: COMPACT_DATA_MULTILABEL)
+  // LayerType next available ID: 46 (last added: HINGE_LOSS_MULTI_LABEL)
   enum LayerType {
     // "NONE" layer type is 0th enum element so that we don't cause confusion
     // by defaulting to an existent LayerType (instead, should usually error if
@@ -246,6 +246,7 @@ message LayerParameter {
     HDF5_DATA = 9;
     HDF5_OUTPUT = 10;
     HINGE_LOSS = 28;
+    HINGE_LOSS_MULTI_LABEL = 45;
     IM2COL = 11;
     IMAGE_DATA = 12;
     INFOGAIN_LOSS = 13;

@@ -11,19 +11,22 @@
 namespace caffe {
 
 template <typename Dtype>
-void HingeLossLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
+void HingeLossMultiLabelLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
     vector<Blob<Dtype>*>* top) {
+  CHECK_EQ(bottom[0]->channels(), bottom[1]->channels()) << "Dimension Mismatch!";
   const Dtype* bottom_data = bottom[0]->cpu_data();
   Dtype* bottom_diff = bottom[0]->mutable_cpu_diff();
-  const Dtype* label = bottom[1]->cpu_data();
+  const Dtype* labels = bottom[1]->cpu_data();
   int num = bottom[0]->num();
   int count = bottom[0]->count();
   int dim = count / num;
 
   caffe_copy(count, bottom_data, bottom_diff);
   for (int i = 0; i < num; ++i) {
-    if (static_cast<int>(label[i]) < dim)
-      bottom_diff[i * dim + static_cast<int>(label[i])] *= -1;
+    for (int j = 0; j < dim; j++) {
+      if (labels[i * dim + j] > 0)
+        bottom_diff[i * dim + j] *= -1;
+    }
   }
   for (int i = 0; i < num; ++i) {
     for (int j = 0; j < dim; ++j) {
@@ -45,7 +48,7 @@ void HingeLossLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
 }
 
 template <typename Dtype>
-void HingeLossLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
+void HingeLossMultiLabelLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
     const vector<bool>& propagate_down, vector<Blob<Dtype>*>* bottom) {
   if (propagate_down[1]) {
     LOG(FATAL) << this->type_name()
@@ -53,14 +56,16 @@ void HingeLossLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
   }
   if (propagate_down[0]) {
     Dtype* bottom_diff = (*bottom)[0]->mutable_cpu_diff();
-    const Dtype* label = (*bottom)[1]->cpu_data();
+    const Dtype* labels = (*bottom)[1]->cpu_data();
     int num = (*bottom)[0]->num();
     int count = (*bottom)[0]->count();
     int dim = count / num;
 
     for (int i = 0; i < num; ++i) {
-      if (static_cast<int>(label[i]) < dim)
-        bottom_diff[i * dim + static_cast<int>(label[i])] *= -1;
+      for (int j = 0; j < dim; j++) {
+        if (labels[i * dim + j] > 0)
+          bottom_diff[i * dim + j] *= -1;
+      }
     }
 
     const Dtype loss_weight = top[0]->cpu_diff()[0];
@@ -78,6 +83,6 @@ void HingeLossLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
   }
 }
 
-INSTANTIATE_CLASS(HingeLossLayer);
+INSTANTIATE_CLASS(HingeLossMultiLabelLayer);
 
 }  // namespace caffe

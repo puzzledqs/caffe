@@ -217,6 +217,8 @@ Layer<Dtype>* GetLayer(const LayerParameter& param) {
     return new HDF5OutputLayer<Dtype>(param);
   case LayerParameter_LayerType_HINGE_LOSS:
     return new HingeLossLayer<Dtype>(param);
+  case LayerParameter_LayerType_HINGE_LOSS_MULTI_LABEL:
+    return new HingeLossMultiLabelLayer<Dtype>(param);
   case LayerParameter_LayerType_IMAGE_DATA:
     return new ImageDataLayer<Dtype>(param);
   case LayerParameter_LayerType_IM2COL:

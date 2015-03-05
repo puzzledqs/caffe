@@ -304,12 +304,12 @@ void CompactDataMultiLabelLayer<Dtype>::InternalThreadEntry() {
           const vector<int> labels = id2label_[id];
           //std::cout << id << " ";
           int label_len = labels.size();
+          CHECK_GT(label_len, 0) << "labels not found for " << id;
           for (int j = 0; j < label_len; j++) {
             top_label[item_id * label_len + j] = (float)labels[j];
             //std::cout << labels[j];
           }
           //std::cout << std::endl;
-          getchar();
           break;
         }
         default:

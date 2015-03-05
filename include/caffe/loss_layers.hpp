@@ -228,7 +228,7 @@ class AccuracyTreeLayer : public Layer<Dtype> {
   vector<int> depth_end_position_;
   int num_nodes_;
   int tree_depth_;
-  
+
 };
 
 /**
@@ -492,6 +492,25 @@ class EuclideanLossLayer : public LossLayer<Dtype> {
  * outside the InnerProductLayer and no other losses outside the
  * HingeLossLayer).
  */
+
+template <typename Dtype>
+class HingeLossMultiLabelLayer : public LossLayer<Dtype> {
+ public:
+  explicit HingeLossMultiLabelLayer(const LayerParameter& param)
+      : LossLayer<Dtype>(param) {}
+
+  virtual inline LayerParameter_LayerType type() const {
+    return LayerParameter_LayerType_HINGE_LOSS_MULTI_LABEL;
+  }
+
+ protected:
+  virtual void Forward_cpu(const vector<Blob<Dtype>*>& bottom,
+      vector<Blob<Dtype>*>* top);
+
+  virtual void Backward_cpu(const vector<Blob<Dtype>*>& top,
+      const vector<bool>& propagate_down, vector<Blob<Dtype>*>* bottom);
+};
+
 template <typename Dtype>
 class HingeLossLayer : public LossLayer<Dtype> {
  public:
