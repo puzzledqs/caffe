@@ -18,6 +18,9 @@ namespace CnnPred {
     void InitCnnModel(string def, string model, string mean,
                     DeviceType dev_type = CPU, int dev_id = 0);
 
+    void InitCnnModelTxt(string def, string model, string mean,
+                    DeviceType dev_type = CPU, int dev_id = 0);
+
     // compute single image
     void ComputeSingleScore(const char *imagepath, vector<float>* scores);
 

@@ -9,18 +9,6 @@ using namespace std;
 
 namespace CnnPred {
 
-// class BkCnn {
-//     public:
-//         static BkCnn* GetInstance() {
-//             if (
-//             return instance_;
-//         }
-//         void Init(string def, string model, string mean, DeviceType dev_type, int dev_id);
-//         void GetScores(string imagelist);
-
-
-// };
-
 static shared_ptr<Net<float> > feature_extraction_net_;
 static bool isInit_ = false;
 
@@ -50,7 +38,59 @@ void InitCnnModel(string def, string model, string mean, DeviceType dev_type, in
     isInit_ = true;
 }
 
-void ComputeSingleScore(const char *imagepath, vector<float>* scores) {}
+void InitCnnModelTxt(string def, string model, string mean, DeviceType dev_type, int dev_id) {
+    FLAGS_logtostderr = 1;
+    FLAGS_minloglevel = 3;
+    if (dev_type == GPU) {
+        std::cout << "Running on GPU" << std::endl;
+        Caffe::SetDevice(dev_id);
+        Caffe::set_mode(Caffe::GPU);
+    }
+    else {
+        std::cout << "Running on CPU" << std::endl;
+        Caffe::set_mode(Caffe::CPU);
+    }
+    Caffe::set_phase(Caffe::TEST);
+
+    NetParameter param;
+    ReadProtoFromTextFileOrDie(def, &param);
+    param.mutable_layers(0)->mutable_transform_param()->set_mean_file(mean);
+    feature_extraction_net_.reset(new Net<float>(param));
+    feature_extraction_net_->CopyTrainedLayersFrom(model);
+    std::cout << "Cnn model initilized" << std::endl;
+    isInit_ = true;
+}
+
+void ComputeSingleScore(const char *imagepath, vector<float>* scores) {
+    if (!isInit_) {
+        LOG(FATAL) << "Cnn is not initilized!";
+        return;
+    }
+    string extract_feature_blob_name("output");
+    CHECK(feature_extraction_net_->has_blob(extract_feature_blob_name))
+            << "Unknown feature blob name" << extract_feature_blob_name;
+    LOG(ERROR) << "Loading image";
+    Datum datum;
+    vector<Datum> datum_vector;
+    ReadImageToDatum(imagepath, 0, 256, 256, &datum);
+    datum_vector.push_back(datum);
+    boost::static_pointer_cast<MemoryDataLayer<float> >(feature_extraction_net_
+            ->layer_by_name("data"))->AddDatumVector(datum_vector);
+
+    LOG(ERROR)<< "Extacting Features";
+    vector<Blob<float>*> input_vec; // dummy
+    feature_extraction_net_->Forward(input_vec);
+    const shared_ptr<Blob<float> > feature_blob = feature_extraction_net_
+              ->blob_by_name(extract_feature_blob_name);
+    CHECK_EQ(feature_blob->width(), 1) << "Incorrect blob width";
+    CHECK_EQ(feature_blob->height(), 1) << "Incorrect blob width";
+    int batch_size = feature_blob->num();
+    int len = feature_blob->channels();
+    scores->clear();
+    for (int j = 0; j < len; j++) {
+        scores->push_back(feature_blob->data_at(0, j, 0, 0));
+    }
+}
 
 void ComputeScores(const char *imagelist, vector<vector<float> >* scores) {
     if (!isInit_) {
