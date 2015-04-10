@@ -277,7 +277,7 @@ void DataTransformer<Dtype>::Transform(const int batch_item_id,
                                        const cv::Mat& cv_img,
                                        const Dtype* mean,
                                        Dtype* transformed_data) {
-  const int channels = cv_img.channels();
+  const int channels = 3;//cv_img.channels();
   const int height = cv_img.rows;
   const int width = cv_img.cols;
   const int size = channels * height * width;
@@ -309,8 +309,13 @@ void DataTransformer<Dtype>::Transform(const int batch_item_id,
             int mean_index = (c * 256 + h + mean_off) * 256 + w + mean_off;
             int top_index = ((batch_item_id * channels + c) * crop_size + h)
                 * crop_size + (crop_size - 1 - w);
-            Dtype datum_element =
+            Dtype datum_element;
+            if (cv_img.channels() == 3)
+              datum_element =
               static_cast<Dtype>(cv_img.at<cv::Vec3b>(h + h_off, w + w_off)[c]);
+            else
+              datum_element =
+              static_cast<Dtype>(cv_img.at<cv::Vec4b>(h + h_off, w + w_off)[c]);
             transformed_data[top_index] =
               (datum_element - mean[mean_index]) * scale;
           }
@@ -325,8 +330,13 @@ void DataTransformer<Dtype>::Transform(const int batch_item_id,
             int top_index = ((batch_item_id * channels + c) * crop_size + h)
                 * crop_size + w;
             int mean_index = (c * 256 + h + mean_off) * 256 + w + mean_off;
-            Dtype datum_element =
+            Dtype datum_element;
+            if (cv_img.channels() == 3)
+              datum_element =
               static_cast<Dtype>(cv_img.at<cv::Vec3b>(h + h_off, w + w_off)[c]);
+            else
+              datum_element =
+              static_cast<Dtype>(cv_img.at<cv::Vec4b>(h + h_off, w + w_off)[c]);
             transformed_data[top_index] =
                 (datum_element - mean[mean_index]) * scale;
           }
