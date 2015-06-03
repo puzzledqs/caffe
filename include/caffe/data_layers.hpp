@@ -173,9 +173,17 @@ class CompactDataMultiLabelLayer : public BasePrefetchingDataLayer<Dtype> {
   virtual inline LayerParameter_LayerType type() const {
     return LayerParameter_LayerType_DATA;
   }
+
+  virtual void Forward_cpu(const vector<Blob<Dtype>*>& bottom,
+      vector<Blob<Dtype>*>* top);
+  virtual void Forward_gpu(const vector<Blob<Dtype>*>& bottom,
+      vector<Blob<Dtype>*>* top);
+
   virtual inline int ExactNumBottomBlobs() const { return 0; }
   virtual inline int MinTopBlobs() const { return 1; }
-  virtual inline int MaxTopBlobs() const { return 2; }
+  // removte the limit in max no. of top blobs
+  virtual inline int MaxTopBlobs() const { return -1; }
+
 
  protected:
   virtual void InternalThreadEntry();
@@ -191,6 +199,7 @@ class CompactDataMultiLabelLayer : public BasePrefetchingDataLayer<Dtype> {
   MDB_val mdb_key_, mdb_value_;
 
   map<string, vector<int> > id2label_;
+  vector<int> label_len_vec_;
 };
 
 /**

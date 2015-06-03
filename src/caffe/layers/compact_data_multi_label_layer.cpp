@@ -233,7 +233,20 @@ void CompactDataMultiLabelLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*
     infile.close();
     LOG(INFO) << "Loading labels completed";
 
-    (*top)[1]->Reshape(this->layer_param_.data_param().batch_size(), label_len, 1, 1);
+    CHECK_EQ(this->layer_param_.data_param().label_len_vec_size(),
+              top->size() - 1)
+            << "label output dimension mismatch";
+    int total_label_len = 0;
+    label_len_vec_.clear();
+    for (int j = 1; j < top->size(); j++) {
+      label_len_vec_.push_back(this->layer_param_.data_param().label_len_vec(j-1));
+      (*top)[j]->Reshape(this->layer_param_.data_param().batch_size(),
+                         this->layer_param_.data_param().label_len_vec(j-1),
+                         1,
+                         1);
+      total_label_len += this->layer_param_.data_param().label_len_vec(j-1);
+    }
+    CHECK_EQ(total_label_len, label_len) << "total label length mismatch!";
     this->prefetch_label_.Reshape(this->layer_param_.data_param().batch_size(),
         label_len, 1, 1);
   }
@@ -241,6 +254,61 @@ void CompactDataMultiLabelLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*
   this->datum_width_ = crop_size;
   this->datum_size_ = this->datum_channels_ * this->datum_height_ * this->datum_width_;
 }
+
+template <typename Dtype>
+void CompactDataMultiLabelLayer<Dtype>::Forward_cpu(
+    const vector<Blob<Dtype>*>& bottom, vector<Blob<Dtype>*>* top) {
+  // First, join the thread
+  this->JoinPrefetchThread();
+  // Copy the data
+  caffe_copy(this->prefetch_data_.count(), this->prefetch_data_.cpu_data(),
+             (*top)[0]->mutable_cpu_data());
+  int offset = 0;
+  const int batch_size = this->layer_param_.data_param().batch_size();
+  if (this->output_labels_) {
+    for (int i = 0; i < batch_size; i++) {
+      std::cout << i << ": ";
+      for (int j = 1; j < top->size(); j++) {
+        caffe_copy(label_len_vec_[j-1],
+                   this->prefetch_label_.cpu_data() + offset,
+                   (*top)[j]->mutable_cpu_data() + label_len_vec_[j-1] * i);
+        std::cout << (*top)[j]->data_at(i, 0, 0, 0) << " ";
+        offset += label_len_vec_[j-1];
+      }
+      std::cout << std::endl;
+    }
+  }
+  // Start a new prefetch thread
+  this->CreatePrefetchThread();
+}
+
+template <typename Dtype>
+void CompactDataMultiLabelLayer<Dtype>::Forward_gpu(
+    const vector<Blob<Dtype>*>& bottom, vector<Blob<Dtype>*>* top) {
+  // First, join the thread
+  this->JoinPrefetchThread();
+  // Copy the data
+  caffe_copy(this->prefetch_data_.count(), this->prefetch_data_.cpu_data(),
+             (*top)[0]->mutable_gpu_data());
+  int offset = 0;
+  const int batch_size = this->layer_param_.data_param().batch_size();
+  if (this->output_labels_) {
+    for (int i = 0; i < batch_size; i++) {
+      //std::cout << i << ": ";
+      for (int j = 1; j < top->size(); j++) {
+        caffe_copy(label_len_vec_[j-1],
+                   this->prefetch_label_.cpu_data() + offset,
+                   (*top)[j]->mutable_gpu_data() + label_len_vec_[j-1] * i);
+        //std::cout << (*top)[j]->data_at(i, 0, 0, 0) << " ";
+        offset += label_len_vec_[j-1];
+      }
+      //std::cout << std::endl;
+    }
+  }
+  // Start a new prefetch thread
+  this->CreatePrefetchThread();
+}
+
 
 // This function is used to create a thread that prefetches the data.
 template <typename Dtype>
@@ -347,6 +415,7 @@ void CompactDataMultiLabelLayer<Dtype>::InternalThreadEntry() {
     }
   }
 }
+
 
 INSTANTIATE_CLASS(CompactDataMultiLabelLayer);
 
