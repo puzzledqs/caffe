@@ -37,10 +37,13 @@ void AccuracyLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
   const Dtype* bottom_label = bottom[1]->cpu_data();
   int num = bottom[0]->num();
   int dim = bottom[0]->count() / bottom[0]->num();
+  int eff_count = 0;
   vector<Dtype> maxval(top_k_+1);
   vector<int> max_id(top_k_+1);
   for (int i = 0; i < num; ++i) {
     // Top-k accuracy
+    int l = static_cast<int>(bottom_data[i]);
+    if (l == -1) continue;
     std::vector<std::pair<Dtype, int> > bottom_data_vector;
     for (int j = 0; j < dim; ++j) {
       bottom_data_vector.push_back(
@@ -56,10 +59,13 @@ void AccuracyLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
         break;
       }
     }
+    eff_count++;
   }
 
+  if (eff_count > 0)
+    accuracy /= eff_count;
   // LOG(INFO) << "Accuracy: " << accuracy;
-  (*top)[0]->mutable_cpu_data()[0] = accuracy / num;
+  (*top)[0]->mutable_cpu_data()[0] = accuracy;
   // Accuracy layer should not be used as a loss function.
 }
 
