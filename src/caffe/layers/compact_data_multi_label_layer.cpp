@@ -246,9 +246,9 @@ void CompactDataMultiLabelLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*
                          1);
       total_label_len += this->layer_param_.data_param().label_len_vec(j-1);
     }
-    CHECK_EQ(total_label_len, label_len) << "total label length mismatch!";
+    CHECK_EQ(total_label_len, label_len) << "output label length mismatch!";
     this->prefetch_label_.Reshape(this->layer_param_.data_param().batch_size(),
-        label_len, 1, 1);
+        total_label_len, 1, 1);
   }
   this->datum_height_ = crop_size;
   this->datum_width_ = crop_size;
@@ -267,15 +267,15 @@ void CompactDataMultiLabelLayer<Dtype>::Forward_cpu(
   const int batch_size = this->layer_param_.data_param().batch_size();
   if (this->output_labels_) {
     for (int i = 0; i < batch_size; i++) {
-      std::cout << i << ": ";
+      //std::cout << i << ": ";
       for (int j = 1; j < top->size(); j++) {
         caffe_copy(label_len_vec_[j-1],
                    this->prefetch_label_.cpu_data() + offset,
                    (*top)[j]->mutable_cpu_data() + label_len_vec_[j-1] * i);
-        std::cout << (*top)[j]->data_at(i, 0, 0, 0) << " ";
+        //std::cout << (*top)[j]->data_at(i, 0, 0, 0) << " ";
         offset += label_len_vec_[j-1];
       }
-      std::cout << std::endl;
+      //std::cout << std::endl;
     }
   }
   // Start a new prefetch thread
@@ -364,6 +364,7 @@ void CompactDataMultiLabelLayer<Dtype>::InternalThreadEntry() {
       // look up id2label to set the labels
       switch(this->layer_param_.data_param().backend()) {
         case DataParameter_DB_LEVELDB:
+          LOG(FATAL) << "Not supported!";
           top_label[item_id] = *((int *)const_cast<char *>(value.data()));
           break;
         case DataParameter_DB_LMDB: {
