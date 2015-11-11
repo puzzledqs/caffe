@@ -19,6 +19,8 @@
 #include "caffe/layer.hpp"
 #include "caffe/proto/caffe.pb.h"
 
+#include "caffe/image_cache.hpp"
+
 namespace caffe {
 
 #define HDF5_DATA_DATASET_NAME "data"
@@ -139,7 +141,7 @@ class CompactDataLayer : public BasePrefetchingDataLayer<Dtype> {
       vector<Blob<Dtype>*>* top);
 
   virtual inline LayerParameter_LayerType type() const {
-    return LayerParameter_LayerType_DATA;
+    return LayerParameter_LayerType_COMPACT_DATA;
   }
   virtual inline int ExactNumBottomBlobs() const { return 0; }
   virtual inline int MinTopBlobs() const { return 1; }
@@ -160,6 +162,73 @@ class CompactDataLayer : public BasePrefetchingDataLayer<Dtype> {
 };
 
 template <typename Dtype>
+class CompactCacheDataLayer : public BasePrefetchingDataLayer<Dtype> {
+ public:
+  explicit CompactCacheDataLayer(const LayerParameter& param)
+      : BasePrefetchingDataLayer<Dtype>(param) {}
+  virtual ~CompactCacheDataLayer();
+  virtual void DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
+      vector<Blob<Dtype>*>* top);
+  virtual void LayerSetUp(const vector<Blob<Dtype>*>& bottom,
+      vector<Blob<Dtype>*>* top);
+
+  virtual inline LayerParameter_LayerType type() const {
+    return LayerParameter_LayerType_COMPACT_CACHE_DATA;
+  }
+  virtual void Forward_cpu(const vector<Blob<Dtype>*>& bottom,
+      vector<Blob<Dtype>*>* top);
+  virtual void Forward_gpu(const vector<Blob<Dtype>*>& bottom,
+      vector<Blob<Dtype>*>* top);
+
+  virtual inline int ExactNumBottomBlobs() const { return 0; }
+  virtual inline int MinTopBlobs() const { return 2; }
+  virtual inline int MaxTopBlobs() const { return -1; }
+
+ protected:
+  virtual void InternalThreadEntry();
+
+  shared_ptr<ImageDataCache> cache_;
+  vector<int> label_len_vec_;
+  vector<string> image_ids_;
+  vector<vector<int> > labels_vec_;
+  int image_cur_;
+  int image_num_;
+};
+
+template <typename Dtype>
+class CompactTripletCacheDataLayer : public BasePrefetchingDataLayer<Dtype> {
+ public:
+  explicit CompactTripletCacheDataLayer(const LayerParameter& param)
+      : BasePrefetchingDataLayer<Dtype>(param) {}
+  virtual ~CompactTripletCacheDataLayer();
+  virtual void DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
+      vector<Blob<Dtype>*>* top);
+  virtual void LayerSetUp(const vector<Blob<Dtype>*>& bottom,
+      vector<Blob<Dtype>*>* top);
+
+  virtual inline LayerParameter_LayerType type() const {
+    return LayerParameter_LayerType_COMPACT_TRIPLET_CACHE_DATA;
+  }
+  virtual void Forward_cpu(const vector<Blob<Dtype>*>& bottom,
+      vector<Blob<Dtype>*>* top);
+  virtual void Forward_gpu(const vector<Blob<Dtype>*>& bottom,
+      vector<Blob<Dtype>*>* top);
+
+  virtual inline int ExactNumBottomBlobs() const { return 0; }
+  virtual inline int ExactNumTopBlobs() const { return 3; }
+  virtual inline int MinTopBlobs() const { return -1; }
+  virtual inline int MaxTopBlobs() const { return -1; }
+
+ protected:
+  virtual void InternalThreadEntry();
+
+  shared_ptr<ImageDataCache> cache_;
+  vector<vector<string> > triplet_vec_;
+  int triplet_cur_;
+  int triplet_num_;
+};
+
+template <typename Dtype>
 class CompactDataMultiLabelLayer : public BasePrefetchingDataLayer<Dtype> {
  public:
   explicit CompactDataMultiLabelLayer(const LayerParameter& param)
@@ -171,7 +240,7 @@ class CompactDataMultiLabelLayer : public BasePrefetchingDataLayer<Dtype> {
       vector<Blob<Dtype>*>* top);
 
   virtual inline LayerParameter_LayerType type() const {
-    return LayerParameter_LayerType_DATA;
+    return LayerParameter_LayerType_COMPACT_DATA_MULTI_LABEL;
   }
 
   virtual void Forward_cpu(const vector<Blob<Dtype>*>& bottom,

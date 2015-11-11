@@ -513,6 +513,35 @@ class SliceLayer : public Layer<Dtype> {
   vector<int> slice_point_;
 };
 
+/**
+ * @brief Normalizes input. Currently assumes L2-normalization
+ */
+template <typename Dtype>
+class NormalizeLayer : public Layer<Dtype> {
+ public:
+  explicit NormalizeLayer(const LayerParameter& param)
+      : Layer<Dtype>(param) {}
+  virtual void Reshape(const vector<Blob<Dtype>*>& bottom,
+      vector<Blob<Dtype>*>* top);
+
+  virtual inline LayerParameter_LayerType type() const {
+    return LayerParameter_LayerType_NORMALIZE;
+  }
+  virtual inline int ExactNumBottomBlobs() const { return 1; }
+  virtual inline int ExactNumTopBlobs() const { return 1; }
+
+ protected:
+  virtual void Forward_cpu(const vector<Blob<Dtype>*>& bottom,
+      vector<Blob<Dtype>*>* top);
+  virtual void Forward_gpu(const vector<Blob<Dtype>*>& bottom,
+      vector<Blob<Dtype>*>* top);
+  virtual void Backward_cpu(const vector<Blob<Dtype>*>& top,
+      const vector<bool>& propagate_down, vector<Blob<Dtype>*>* bottom);
+  virtual void Backward_gpu(const vector<Blob<Dtype>*>& top,
+     const vector<bool>& propagate_down, vector<Blob<Dtype>*>* bottom);
+};
+
+
 }  // namespace caffe
 
 #endif  // CAFFE_COMMON_LAYERS_HPP_

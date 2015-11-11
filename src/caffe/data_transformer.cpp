@@ -7,6 +7,8 @@
 #include "caffe/util/math_functions.hpp"
 #include "caffe/util/rng.hpp"
 
+//#define DEBUG_SHOWIMG
+
 namespace caffe {
 
 template<typename Dtype>
@@ -43,7 +45,7 @@ void DataTransformer<Dtype>::TransformSingle(const int batch_item_id,
     w_off = w[4];
   }
 
-
+#ifdef DEBUG_SHOWIMG
   ////// -------------------!! for debug !! -------------------
   // IplImage *dest = cvCreateImage(cvSize(crop_size * 2, crop_size * 2),
                                     // img->depth, img->nChannels);
@@ -57,17 +59,19 @@ void DataTransformer<Dtype>::TransformSingle(const int batch_item_id,
   // cvWaitKey(0);
   // cvReleaseImage(&img);
   // cvReleaseImage(&dest);
-  // if (phase_ == Caffe::TRAIN) {
+  if (phase_ == Caffe::TRAIN) {
   //   cvSetImageROI(img, cvRect(w_off, h_off, crop_size, crop_size));
   //   // cvCopy(img, dest, NULL);
   //   cvResize(img, dest);
   //   cvResetImageROI(img);
-  //   cvShowImage("Sample1", img);
+    cvNamedWindow("Sample1");
+    cvShowImage("Sample1", img);
   //   cvShowImage("Sample2", dest);
-  //   cvWaitKey(0);
-  // }
+    cvWaitKey(0);
+  }
   // cvReleaseImage(&dest);
   ////// -------------------------------------------------------
+#endif
   if (mirror && Rand() % 2) {
     // Copy mirrored version
     for (int c = 0; c < channels; c++) {

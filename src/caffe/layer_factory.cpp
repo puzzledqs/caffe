@@ -195,6 +195,10 @@ Layer<Dtype>* GetLayer(const LayerParameter& param) {
     return new CompactDataMultiLabelLayer<Dtype>(param);
   case LayerParameter_LayerType_SINK:
     return new SinkLayer<Dtype>(param);
+  case LayerParameter_LayerType_COMPACT_CACHE_DATA:
+    return new CompactCacheDataLayer<Dtype>(param);
+  case LayerParameter_LayerType_COMPACT_TRIPLET_CACHE_DATA:
+    return new CompactTripletCacheDataLayer<Dtype>(param);
   case LayerParameter_LayerType_CONCAT:
     return new ConcatLayer<Dtype>(param);
   case LayerParameter_LayerType_CONTRASTIVE_LOSS:
@@ -239,6 +243,8 @@ Layer<Dtype>* GetLayer(const LayerParameter& param) {
     return new MVNLayer<Dtype>(param);
   case LayerParameter_LayerType_MULTINOMIAL_LOGISTIC_LOSS:
     return new MultinomialLogisticLossLayer<Dtype>(param);
+  case LayerParameter_LayerType_NORMALIZE:
+    return new NormalizeLayer<Dtype>(param);
   case LayerParameter_LayerType_POOLING:
     return GetPoolingLayer<Dtype>(name, param);
   case LayerParameter_LayerType_POWER:
@@ -263,6 +269,8 @@ Layer<Dtype>* GetLayer(const LayerParameter& param) {
     return GetTanHLayer<Dtype>(name, param);
   case LayerParameter_LayerType_TRANSFORM_SOFTMAX_LOSS:
     return new TransformSoftmaxWithLossLayer<Dtype>(param);
+  case LayerParameter_LayerType_TRIPLET_RANKING_HINGE_LOSS:
+    return new TripletRankingHingeLossLayer<Dtype>(param);
   case LayerParameter_LayerType_SOFTMAX_LOSS_TREE:
     return new SoftmaxWithLossTreeLayer<Dtype>(param);
   case LayerParameter_LayerType_ACCURACY_TREE:

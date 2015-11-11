@@ -45,7 +45,9 @@ void Solver<Dtype>::Init(const SolverParameter& param) {
   else
     Caffe::set_accumulate(true);
   // Scaffolding code
+  Caffe::set_phase(Caffe::TRAIN);
   InitTrainNet();
+  Caffe::set_phase(Caffe::TEST);
   InitTestNets();
   LOG(INFO) << "Solver scaffolding done.";
 

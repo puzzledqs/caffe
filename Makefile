@@ -169,6 +169,7 @@ LIBRARIES += pthread \
 	glog gflags protobuf leveldb snappy \
 	lmdb \
 	boost_system \
+	boost_filesystem \
 	hdf5_hl hdf5 \
 	opencv_core opencv_highgui opencv_imgproc
 PYTHON_LIBRARIES := boost_python python2.7

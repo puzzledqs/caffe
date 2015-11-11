@@ -201,7 +201,7 @@ message NetStateRule {
 // NOTE
 // Update the next available ID when you add a new LayerParameter field.
 //
-// LayerParameter next available ID: 42 (last added: label_transform_param)
+// LayerParameter next available ID: 44 (last added: triplet_ranking_hinge_loss_param)
 message LayerParameter {
   repeated string bottom = 2; // the name of the bottom blobs
   repeated string top = 3; // the name of the top blobs
@@ -222,7 +222,7 @@ message LayerParameter {
   // line above the enum. Update the next available ID when you add a new
   // LayerType.
   //
-  // LayerType next available ID: 47 (last added: SINK)
+  // LayerType next available ID: 51 (last added: COMPACT_TRIPLET_CACHE_DATA)
   enum LayerType {
     // "NONE" layer type is 0th enum element so that we don't cause confusion
     // by defaulting to an existent LayerType (instead, should usually error if
@@ -235,6 +235,8 @@ message LayerParameter {
     COMPACT_DATA = 43;
     COMPACT_DATA_MULTI_LABEL = 44;
     SINK = 46;
+    COMPACT_CACHE_DATA = 47;
+    COMPACT_TRIPLET_CACHE_DATA = 50;
     CONCAT = 3;
     CONTRASTIVE_LOSS = 37;
     CONVOLUTION = 4;
@@ -274,6 +276,8 @@ message LayerParameter {
     TRANSFORM_ACCURACY = 40;
     WINDOW_DATA = 24;
     THRESHOLD = 31;
+    TRIPLET_RANKING_HINGE_LOSS = 48;
+    NORMALIZE = 49;
   }
   optional LayerType type = 5; // the layer type from the enum above
 
@@ -331,6 +335,7 @@ message LayerParameter {
   optional TanHParameter tanh_param = 37;
   optional ThresholdParameter threshold_param = 25;
   optional WindowDataParameter window_data_param = 20;
+  optional TripletRankingHingeLossParameter triplet_ranking_hinge_loss_param = 43;
 
   // Parameters for data pre-processing.
   optional TransformationParameter transform_param = 36;
@@ -490,6 +495,18 @@ message EltwiseParameter {
 message ThresholdParameter {
   optional float threshold = 1 [default = 0]; // Strictly Positive values
 }
+
+// Message that stores parameters used by TripletRankingHingeLossLayer
+message TripletRankingHingeLossParameter {
+  optional float margin = 1 [default = 1];
+  enum Norm {
+    L1 = 1;
+    L2 = 2;
+  }
+  // Specify the Norm to use L1 or L2
+  optional Norm norm = 2 [default = L2];
+}
+
 
 // Message that stores parameters used by HDF5DataLayer
 message HDF5DataParameter {
