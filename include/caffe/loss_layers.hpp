@@ -1011,10 +1011,14 @@ class TripletRankingHingeLossLayer : public LossLayer<Dtype> {
   virtual inline LayerParameter_LayerType type() const {
     return LayerParameter_LayerType_TRIPLET_RANKING_HINGE_LOSS;
   }
+  // 0: features
+  // 1: triplet index
+  virtual inline int MinBottomBlobs() const { return 2; }
+
   // 0: Query feature
   // 1: Similar sample feature
   // 2: Dissimilar sample feature
-  virtual inline int ExactNumBottomBlobs() const { return 3; }
+  virtual inline int MaxBottomBlobs() const { return 3; }
   // 0: loss
   // 1: accuracy
   virtual inline int ExactNumTopBlobs() const { return 2; }
@@ -1030,8 +1034,59 @@ class TripletRankingHingeLossLayer : public LossLayer<Dtype> {
       vector<Blob<Dtype>*>* top);
   virtual void Backward_gpu(const vector<Blob<Dtype>*>& top,
       const vector<bool>& propagate_down, vector<Blob<Dtype>*>* bottom);
+  void Forward_cpu2(const vector<Blob<Dtype>*>& bottom,
+      vector<Blob<Dtype>*>* top);
+  void Forward_cpu3(const vector<Blob<Dtype>*>& bottom,
+      vector<Blob<Dtype>*>* top);
+  void Backward_cpu2(const vector<Blob<Dtype>*>& top,
+      const vector<bool>& propagate_down, vector<Blob<Dtype>*>* bottom);
+  void Backward_cpu3(const vector<Blob<Dtype>*>& top,
+      const vector<bool>& propagate_down, vector<Blob<Dtype>*>* bottom);
 };
 
+template <typename Dtype>
+class TripletSamplingLayer : public Layer<Dtype> {
+ public:
+  explicit TripletSamplingLayer(const LayerParameter& param)
+     : Layer<Dtype>(param) {}
+  virtual inline LayerParameter_LayerType type() const {
+    return LayerParameter_LayerType_TRIPLET_RANKING_HINGE_LOSS;
+  }
+  virtual void LayerSetUp(
+      const vector<Blob<Dtype>*>& bottom, vector<Blob<Dtype>*>* top);
+  virtual void Reshape(
+      const vector<Blob<Dtype>*>& bottom, vector<Blob<Dtype>*>* top);
+
+  virtual inline int ExactNumBottomBlobs() const { return 1; }
+
+  /**
+   * @brief For convenience and backwards compatibility, instruct the Net to
+   *        automatically allocate a single top Blob for LossLayers, into which
+   *        they output their singleton loss, (even if the user didn't specify
+   *        one in the prototxt, etc.).
+   */
+  virtual inline bool AutoTopBlobs() const { return true; }
+  virtual inline int ExactNumTopBlobs() const { return 1; }
+  /**
+   * We usually cannot backpropagate to the labels; ignore force_backward for
+   * these inputs.
+   */
+  virtual inline bool AllowForceBackward(const int bottom_index) const {
+    return false;
+  }
+ protected:
+  virtual void Forward_cpu(const vector<Blob<Dtype>*>& bottom,
+      vector<Blob<Dtype>*>* top);
+  virtual void Backward_cpu(const vector<Blob<Dtype>*>& top,
+      const vector<bool>& propagate_down, vector<Blob<Dtype>*>* bottom) {};
+  virtual void Forward_gpu(const vector<Blob<Dtype>*>& bottom,
+      vector<Blob<Dtype>*>* top);
+  virtual void Backward_gpu(const vector<Blob<Dtype>*>& top,
+      const vector<bool>& propagate_down, vector<Blob<Dtype>*>* bottom);
+
+  Blob<Dtype> blob1_, blob2_, blob3_; // for user, shop, and dist matrix resp.
+  int triplet_num_;
+};
 
 }  // namespace caffe
 

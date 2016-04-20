@@ -271,6 +271,8 @@ Layer<Dtype>* GetLayer(const LayerParameter& param) {
     return new TransformSoftmaxWithLossLayer<Dtype>(param);
   case LayerParameter_LayerType_TRIPLET_RANKING_HINGE_LOSS:
     return new TripletRankingHingeLossLayer<Dtype>(param);
+  case LayerParameter_LayerType_TRIPLET_SAMPLING:
+    return new TripletSamplingLayer<Dtype>(param);
   case LayerParameter_LayerType_SOFTMAX_LOSS_TREE:
     return new SoftmaxWithLossTreeLayer<Dtype>(param);
   case LayerParameter_LayerType_ACCURACY_TREE:

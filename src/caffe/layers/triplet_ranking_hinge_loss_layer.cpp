@@ -24,6 +24,144 @@ void TripletRankingHingeLossLayer<Dtype>::Reshape(
 template <typename Dtype>
 void TripletRankingHingeLossLayer<Dtype>::Forward_cpu(
     const vector<Blob<Dtype>*>& bottom, vector<Blob<Dtype>*>* top) {
+    if (bottom.size() == 2)
+        Forward_cpu2(bottom, top);
+    else if (bottom.size() == 3)
+        Forward_cpu3(bottom, top);
+    else
+        LOG(FATAL) << "Unsupported No. of bottom blobs: " <<
+            bottom.size();
+}
+
+template <typename Dtype>
+void TripletRankingHingeLossLayer<Dtype>::Backward_cpu(
+    const vector<Blob<Dtype>*>& top, const vector<bool>& propagate_down,
+    vector<Blob<Dtype>*>* bottom) {
+    if (bottom->size() == 2)
+        Backward_cpu2(top, propagate_down, bottom);
+    else if (bottom->size() == 3)
+        Backward_cpu3(top, propagate_down, bottom);
+    else
+        LOG(FATAL) << "Unsupported No. of bottom blobs: " <<
+            bottom->size();
+}
+
+template <typename Dtype>
+void TripletRankingHingeLossLayer<Dtype>::Forward_cpu2(
+    const vector<Blob<Dtype>*>& bottom, vector<Blob<Dtype>*>* top) {
+    CHECK_EQ(bottom.size(), 2);
+    const Dtype loss_weight = (*top)[0]->cpu_diff()[0];
+    const Dtype* data = bottom[0]->cpu_data();
+    const Dtype* triplets = bottom[1]->cpu_data();
+    Dtype* loss = (*top)[0]->mutable_cpu_data();
+    Dtype* acc = (*top)[1]->mutable_cpu_data();
+
+    int data_num = bottom[0]->num();
+    int triplet_num = bottom[1]->num();
+    int data_count = bottom[0]->count();
+    int data_dim = data_count / data_num;
+
+    Dtype* diff = bottom[0]->mutable_cpu_diff();
+    caffe_set(data_num, Dtype(0), diff);
+
+    loss[0] = Dtype(0);
+    acc[0] = Dtype(0);
+    Dtype l = Dtype(0);
+    float margin
+        = this->layer_param_.triplet_ranking_hinge_loss_param().margin();
+
+    Dtype* ptr_similar_sample_diff = new Dtype[data_dim];
+    Dtype* ptr_dissimilar_sample_diff = new Dtype[data_dim];
+    Dtype query_similar_distance_norm;
+    Dtype query_dissimilar_distance_norm;
+    switch (this->layer_param_.triplet_ranking_hinge_loss_param().norm()) {
+      case TripletRankingHingeLossParameter_Norm_L1:
+        LOG(FATAL) << "Unknown TripletRankingHingeLoss norm " <<
+            this->layer_param_.triplet_ranking_hinge_loss_param().norm();
+        break;
+      case TripletRankingHingeLossParameter_Norm_L2: {
+        for (int i = 0; i < triplet_num; i++) {
+            int q_ind = (int)(triplets[3*i]);
+            int s_ind = (int)(triplets[3*i + 1]);
+            int d_ind = (int)(triplets[3*i + 2]);
+            caffe_sub(
+                        data_dim,
+                        data + bottom[0]->offset(q_ind),
+                        data + bottom[0]->offset(s_ind),
+                        ptr_similar_sample_diff
+                    );
+            caffe_sub(
+                        data_dim,
+                        data + bottom[0]->offset(q_ind),
+                        data + bottom[0]->offset(d_ind),
+                        ptr_dissimilar_sample_diff
+                    );
+            query_similar_distance_norm = caffe_cpu_dot(
+                  data_dim, ptr_similar_sample_diff, ptr_similar_sample_diff);
+            query_dissimilar_distance_norm = caffe_cpu_dot(
+                  data_dim, ptr_dissimilar_sample_diff, ptr_dissimilar_sample_diff);
+
+            l = max(Dtype(0), query_similar_distance_norm -
+                          query_dissimilar_distance_norm + margin);
+              // std::cout << "Triplet #" << i << ": "
+              //           << query_similar_distance_norm << ", "
+              //           << query_dissimilar_distance_norm  << ", ";
+              // std::cout << (l > Dtype(0)) << std::endl;
+            loss[0] += l;
+            l = (l > Dtype(0));
+            acc[0] += (1 - l);
+
+            /* below we calculate the gradient
+                w.r.t the current triplet */
+            caffe_scal(
+                        data_dim,
+                        l * Dtype(-2*loss_weight / triplet_num),
+                        ptr_similar_sample_diff
+                    );
+            caffe_scal(
+                        data_dim,
+                        l * Dtype(2*loss_weight / triplet_num),
+                        ptr_dissimilar_sample_diff
+                    );
+            caffe_axpy(
+                        data_dim,
+                        Dtype(1),
+                        ptr_similar_sample_diff,
+                        diff + bottom[0]->offset(s_ind)
+                    );
+            caffe_axpy(
+                        data_dim,
+                        Dtype(1),
+                        ptr_dissimilar_sample_diff,
+                        diff + bottom[0]->offset(d_ind)
+                    );
+            caffe_axpy(
+                        data_dim,
+                        Dtype(-1),
+                        ptr_dissimilar_sample_diff,
+                        diff + bottom[0]->offset(q_ind)
+                    );
+            caffe_axpy(
+                        data_dim,
+                        Dtype(-1),
+                        ptr_similar_sample_diff,
+                        diff + bottom[0]->offset(q_ind)
+                    );
+        }
+      }
+      default:
+        LOG(FATAL) << "Unknown TripletRankingHingeLoss norm " <<
+            this->layer_param_.triplet_ranking_hinge_loss_param().norm();
+        break;
+    }
+    delete []ptr_similar_sample_diff;
+    delete []ptr_dissimilar_sample_diff;
+}
+
+template <typename Dtype>
+void TripletRankingHingeLossLayer<Dtype>::Forward_cpu3(
+    const vector<Blob<Dtype>*>& bottom, vector<Blob<Dtype>*>* top) {
+  CHECK_EQ(bottom.size(), 3);
   const Dtype* query_data = bottom[0]->cpu_data();
   const Dtype* similar_sample_data = bottom[1]->cpu_data();
   const Dtype* dissimilar_sample_data = bottom[2]->cpu_data();
@@ -96,9 +234,10 @@ void TripletRankingHingeLossLayer<Dtype>::Forward_cpu(
 }
 
 template <typename Dtype>
-void TripletRankingHingeLossLayer<Dtype>::Backward_cpu(
+void TripletRankingHingeLossLayer<Dtype>::Backward_cpu3(
     const vector<Blob<Dtype>*>& top, const vector<bool>& propagate_down,
     vector<Blob<Dtype>*>* bottom) {
+  CHECK_EQ(bottom->size(), 3);
   if (propagate_down[0]) {
     const Dtype loss_weight = top[0]->cpu_diff()[0];
     Dtype* query_sample_diff = (*bottom)[0]->mutable_cpu_diff();
@@ -132,6 +271,13 @@ void TripletRankingHingeLossLayer<Dtype>::Backward_cpu(
         }
     }
   }
+}
+
+template <typename Dtype>
+void TripletRankingHingeLossLayer<Dtype>::Backward_cpu2(
+    const vector<Blob<Dtype>*>& top, const vector<bool>& propagate_down,
+    vector<Blob<Dtype>*>* bottom) {
+    CHECK_EQ(bottom->size(), 2);
 }
 
 INSTANTIATE_CLASS(TripletRankingHingeLossLayer);
