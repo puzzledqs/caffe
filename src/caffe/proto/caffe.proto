@@ -622,6 +622,7 @@ message PoolingParameter {
     CUDNN = 2;
   }
   optional Engine engine = 11 [default = DEFAULT];
+  optional bool global_pooling = 12 [default = false];
 }
 
 // Message that stores parameters used by PowerLayer
